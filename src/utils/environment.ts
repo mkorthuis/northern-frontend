@@ -5,17 +5,6 @@
  * and easier management across the application.
  */
 
-/**
- * Current fiscal year from environment configuration
- * Used for default financial report fetching
- */
-export const FISCAL_YEAR = import.meta.env.VITE_FISCAL_YEAR || '2024';
-
-/**
- * Starting fiscal year for historical data
- * Used for comparison year ranges
- */
-export const FISCAL_START_YEAR = import.meta.env.VITE_FISCAL_START_YEAR || '2010';
 
 /**
  * API base URL from environment configuration
