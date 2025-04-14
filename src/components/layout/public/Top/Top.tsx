@@ -27,7 +27,7 @@ export default function Top() {
   }, [location]);
 
   // Find the current path title
-  let currentTitle = 'NH Education Facts'; // Default title
+  let currentTitle = 'Northern Intelligence'; // Default title
   let showBackButton = location.pathname !== '/'; // Show back button if not on home page
   
   for (const key in PATHS.PUBLIC) {
