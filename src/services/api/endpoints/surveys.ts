@@ -62,6 +62,12 @@ interface SurveyResponseCreate {
     answers?: AnswerCreate[];
 }
 
+interface SurveyResponseBulkCreate {
+    survey_id: string; // uuid
+    responses: SurveyResponseCreate[];
+    batch_metadata?: object | null;
+}
+
 interface SurveyResponseUpdate {
     completed_at?: string | null; // date-time
     is_complete?: boolean | null;
@@ -119,6 +125,9 @@ export const surveyApi = {
     // Survey response endpoints
     createSurveyResponse: (responseData: SurveyResponseCreate) => 
         axiosInstance.post(buildSurveyUrl('response'), responseData),
+    
+    createSurveyResponsesBulk: (bulkData: SurveyResponseBulkCreate) => 
+        axiosInstance.post(buildSurveyUrl('response/bulk'), bulkData),
     
     getSurveyResponse: (responseId: string, forceRefresh = false) => 
         fetchData(buildSurveyUrl(`response/${responseId}`), forceRefresh),

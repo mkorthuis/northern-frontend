@@ -280,11 +280,11 @@ export const parseCSVToQuestions = (text: string): {
       const question: SurveyQuestion = {
         title: questionText,
         description: [
-          questionId ? `ID: ${questionId}` : '',
           questionTopic ? `Topic: ${questionTopic}` : '',
           reportSegment ? `Segment: ${reportSegment}` : '',
           chartType ? `Chart Type: ${chartType}` : ''
         ].filter(Boolean).join(' | '),
+        external_question_id: questionId || null, // Set the external_question_id from the question_id column
         is_required: true, // Default to required
         order_index: lastOrderIndex++,
         type_id: typeId,

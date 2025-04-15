@@ -111,13 +111,18 @@ const SurveyDetail: React.FC = () => {
     setShowUploadResponses(false);
   };
 
-  const handleUploadComplete = (data: any) => {
-    console.log('Upload complete with data:', data);
-    // Here you would typically process the data or update the store
-    // For now we just log it and close the upload component after a delay
+  const handleUploadComplete = (result: { totalResponses: number, successCount: number, failedCount: number }) => {
+    console.log('Upload complete:', result);
+    
+    // Refresh survey data if any responses were successfully uploaded
+    if (result.successCount > 0 && id) {
+      getSurveyById(id, true);
+    }
+    
+    // Keep the upload component visible briefly so user can see the success message
     setTimeout(() => {
       setShowUploadResponses(false);
-    }, 2000);
+    }, 3000);
   };
 
   if (surveyByIdLoading) {

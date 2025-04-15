@@ -14,6 +14,7 @@ export interface SurveyOption {
 
 export interface SurveyQuestion {
   id?: string;
+  external_question_id?: string | null;
   title: string;
   description?: string | null;
   is_required?: boolean;

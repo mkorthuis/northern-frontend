@@ -110,6 +110,7 @@ const CsvUploadPanel: React.FC<CsvUploadPanelProps> = ({ onQuestionsAdded }) => 
         </Typography>
         <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
           Note: The CSV should have the fields in the header row. Response options can include commas within quotes.
+          The <strong>question_id</strong> column will be used as the <strong>external_question_id</strong> field.
         </Typography>
         <Button 
           size="small" 
