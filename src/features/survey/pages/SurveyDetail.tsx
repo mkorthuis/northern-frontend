@@ -7,10 +7,11 @@ import {
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
 import useSurvey from '../hooks/useSurvey';
-import { ArrowBack, Edit, Assessment, Add } from '@mui/icons-material';
+import { ArrowBack, Edit, Assessment, Add, CloudUpload } from '@mui/icons-material';
 import { format } from 'date-fns';
 import AddQuestionForm from '../components/AddQuestionForm';
 import EditQuestionForm from '../components/EditQuestionForm';
+import SurveyResponseUpload from '../components/SurveyResponseUpload';
 import { getQuestionTypeById } from '@/constants/questionTypes';
 import { SurveyQuestion } from '@/store/slices/surveySlice';
 
@@ -34,6 +35,7 @@ const SurveyDetail: React.FC = () => {
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [editingQuestion, setEditingQuestion] = useState<SurveyQuestion | null>(null);
+  const [showUploadResponses, setShowUploadResponses] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -98,6 +100,24 @@ const SurveyDetail: React.FC = () => {
 
   const handleCancelEdit = () => {
     setEditingQuestion(null);
+  };
+
+  // Survey Response Upload handlers
+  const handleShowUploadResponses = () => {
+    setShowUploadResponses(true);
+  };
+
+  const handleCancelUpload = () => {
+    setShowUploadResponses(false);
+  };
+
+  const handleUploadComplete = (data: any) => {
+    console.log('Upload complete with data:', data);
+    // Here you would typically process the data or update the store
+    // For now we just log it and close the upload component after a delay
+    setTimeout(() => {
+      setShowUploadResponses(false);
+    }, 2000);
   };
 
   if (surveyByIdLoading) {
@@ -200,6 +220,15 @@ const SurveyDetail: React.FC = () => {
         <Box>
           <Button 
             variant="contained" 
+            color="secondary" 
+            startIcon={<CloudUpload />} 
+            onClick={handleShowUploadResponses}
+            sx={{ mr: 1 }}
+          >
+            Upload Responses
+          </Button>
+          <Button 
+            variant="contained" 
             color="info" 
             startIcon={<Assessment />} 
             onClick={handleViewResponses}
@@ -272,6 +301,15 @@ const SurveyDetail: React.FC = () => {
           </Grid>
         </Grid>
       </Paper>
+      
+      {/* Survey Response Upload Component */}
+      {showUploadResponses && id && (
+        <SurveyResponseUpload
+          surveyId={id}
+          onUploadComplete={handleUploadComplete}
+          onCancel={handleCancelUpload}
+        />
+      )}
 
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5">Survey Structure</Typography>
