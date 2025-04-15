@@ -90,6 +90,57 @@ interface AnswerItemCreate {
     column_identifier?: string | null;
 }
 
+// Paginated response interface
+interface PaginatedResponse<T> {
+    items: T[];
+    total: number;
+    page: number;
+    page_size: number;
+    pages: number;
+    has_previous: boolean;
+    has_next: boolean;
+}
+
+// Survey response interface
+interface SurveyResponse {
+    id: string; // uuid
+    survey_id: string; // uuid
+    respondent_id?: string | null; // uuid
+    started_at: string; // date-time
+    completed_at?: string | null; // date-time
+    is_complete: boolean;
+    answers: Answer[];
+}
+
+interface Answer {
+    id: string; // uuid
+    question_id: string; // uuid
+    value?: string | null;
+    selected_options?: object | null;
+    file_path?: string | null;
+    items?: AnswerItem[];
+}
+
+interface AnswerItem {
+    id: string; // uuid
+    item_index: number;
+    value?: string | null;
+    option_id?: string | null; // uuid
+    row_identifier?: string | null;
+    column_identifier?: string | null;
+}
+
+// Filter options for paginated survey responses
+interface SurveyResponseFilterOptions {
+    page?: number;
+    page_size?: number;
+    completed_only?: boolean;
+    started_after?: string | null;
+    started_before?: string | null;
+    respondent_id?: string | null;
+    search_term?: string | null;
+}
+
 // Helper function specific to survey endpoints
 const buildSurveyUrl = (endpoint: string, options: Record<string, any> = {}): string => {
     return buildUrl(BASE_ENDPOINT_URL, endpoint, options);
@@ -140,5 +191,24 @@ export const surveyApi = {
     
     // Get all responses for a specific survey
     getSurveyResponses: (surveyId: string, completedOnly = false, forceRefresh = false) => 
-        fetchData(buildSurveyUrl(`${surveyId}/responses`, { completed_only: completedOnly }), forceRefresh)
+        fetchData(buildSurveyUrl(`${surveyId}/responses`, { completed_only: completedOnly }), forceRefresh),
+    
+    // Get paginated responses for a specific survey with filtering options
+    getSurveyResponsesPaginated: (
+        surveyId: string, 
+        options: SurveyResponseFilterOptions = {}, 
+        forceRefresh = false
+    ): Promise<PaginatedResponse<SurveyResponse>> => {
+        const params = {
+            page: options.page || 1,
+            page_size: options.page_size || 50,
+            completed_only: options.completed_only || false,
+            ...options.started_after && { started_after: options.started_after },
+            ...options.started_before && { started_before: options.started_before },
+            ...options.respondent_id && { respondent_id: options.respondent_id },
+            ...options.search_term && { search_term: options.search_term }
+        };
+        
+        return fetchData(buildSurveyUrl(`${surveyId}/responses`, params), forceRefresh);
+    }
 };

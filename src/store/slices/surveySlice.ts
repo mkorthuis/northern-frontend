@@ -77,18 +77,42 @@ export interface SurveyResponse {
   completed_at?: string | null;
   is_complete?: boolean;
   answers?: SurveyResponseAnswer[];
+  started_at?: string;
+}
+
+// Define types for the paginated response
+export interface PaginatedSurveyResponses {
+  items: SurveyResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+  has_previous: boolean;
+  has_next: boolean;
+}
+
+export interface SurveyResponseFilterOptions {
+  page?: number;
+  page_size?: number;
+  completed_only?: boolean;
+  started_after?: string | null;
+  started_before?: string | null;
+  respondent_id?: string | null;
+  search_term?: string | null;
 }
 
 export interface SurveyState {
   surveys: Survey[];
   currentSurvey: Survey | null;
   surveyResponses: SurveyResponse[];
+  paginatedResponses: PaginatedSurveyResponses | null;
   currentResponse: SurveyResponse | null;
   loading: boolean;
   loadingStates: {
     surveys: boolean;
     survey: boolean;
     responses: boolean;
+    paginatedResponses: boolean;
     response: boolean;
     createSurvey: boolean;
     updateSurvey: boolean;
@@ -107,12 +131,14 @@ const initialState: SurveyState = {
   surveys: [],
   currentSurvey: null,
   surveyResponses: [],
+  paginatedResponses: null,
   currentResponse: null,
   loading: false,
   loadingStates: {
     surveys: false,
     survey: false,
     responses: false,
+    paginatedResponses: false,
     response: false,
     createSurvey: false,
     updateSurvey: false,
@@ -297,6 +323,19 @@ export const deleteQuestion = createAsyncThunk(
   }
 );
 
+export const fetchPaginatedSurveyResponses = createAsyncThunk(
+  'survey/fetchPaginatedSurveyResponses',
+  async ({ surveyId, options = {}, forceRefresh = false }: 
+  { surveyId: string, options?: SurveyResponseFilterOptions, forceRefresh?: boolean }, 
+  { rejectWithValue }) => {
+    try {
+      return await surveyApi.getSurveyResponsesPaginated(surveyId, options, forceRefresh);
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to fetch paginated survey responses'));
+    }
+  }
+);
+
 // Create the survey slice
 export const surveySlice = createSlice({
   name: 'survey',
@@ -311,6 +350,10 @@ export const surveySlice = createSlice({
       state.error = null;
     },
     clearSurveysError: (state) => {
+      state.error = null;
+    },
+    clearPaginatedResponses: (state) => {
+      state.paginatedResponses = null;
       state.error = null;
     },
   },
@@ -579,6 +622,24 @@ export const surveySlice = createSlice({
         state.loading = false;
         state.error = action.payload as string;
       });
+
+    // Fetch Paginated Survey Responses
+    builder
+      .addCase(fetchPaginatedSurveyResponses.pending, (state) => {
+        state.loadingStates.paginatedResponses = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchPaginatedSurveyResponses.fulfilled, (state, action) => {
+        state.paginatedResponses = action.payload;
+        state.loadingStates.paginatedResponses = false;
+        state.loading = false;
+      })
+      .addCase(fetchPaginatedSurveyResponses.rejected, (state, action) => {
+        state.loadingStates.paginatedResponses = false;
+        state.loading = false;
+        state.error = action.payload as string;
+      });
   },
 });
 
@@ -586,7 +647,8 @@ export const surveySlice = createSlice({
 export const { 
   clearSurveyData, 
   clearResponseData, 
-  clearSurveysError 
+  clearSurveysError,
+  clearPaginatedResponses 
 } = surveySlice.actions;
 
 // Export selectors
@@ -611,6 +673,10 @@ export const selectDeleteResponseLoading = (state: RootState) => state.survey.lo
 export const selectAddQuestionLoading = (state: RootState) => state.survey.loadingStates.addQuestion;
 export const selectUpdateQuestionLoading = (state: RootState) => state.survey.loadingStates.updateQuestion;
 export const selectDeleteQuestionLoading = (state: RootState) => state.survey.loadingStates.deleteQuestion;
+
+// New selectors for paginated responses
+export const selectPaginatedResponses = (state: RootState) => state.survey.paginatedResponses;
+export const selectPaginatedResponsesLoading = (state: RootState) => state.survey.loadingStates.paginatedResponses;
 
 // Export reducer
 export default surveySlice.reducer;

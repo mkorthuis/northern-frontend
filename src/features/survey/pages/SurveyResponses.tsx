@@ -5,43 +5,166 @@ import {
   TableCell, TableContainer, TableHead, TableRow, Chip,
   Accordion, AccordionSummary, AccordionDetails, Dialog,
   DialogTitle, DialogContent, DialogContentText, DialogActions,
-  IconButton, Tooltip, Grid
+  IconButton, Tooltip, Grid, Pagination, FormControl,
+  InputLabel, Select, MenuItem, TextField, Stack,
+  FormControlLabel, Checkbox, InputAdornment, SelectChangeEvent
 } from '@mui/material';
 import { 
   ArrowBack, ExpandMore, Delete as DeleteIcon, 
-  Visibility as VisibilityIcon 
+  Visibility as VisibilityIcon, Search as SearchIcon,
+  FilterList as FilterIcon, Close as CloseIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
-import { format } from 'date-fns';
-import { SurveyResponse, SurveyResponseAnswer } from '@/store/slices/surveySlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { 
+  fetchSurveyById, fetchPaginatedSurveyResponses, deleteSurveyResponse,
+  selectCurrentSurvey, selectPaginatedResponses, selectSurveyByIdLoading,
+  selectPaginatedResponsesLoading, selectDeleteResponseLoading,
+  SurveyResponse, SurveyResponseAnswer, SurveyResponseFilterOptions
+} from '@/store/slices/surveySlice';
+import { format, parseISO } from 'date-fns';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+const DEFAULT_PAGE_SIZE = 25;
+
+// Format date helper
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return 'Unknown';
+  try {
+    return format(parseISO(dateStr), 'MMM d, yyyy HH:mm');
+  } catch (e) {
+    return 'Invalid date';
+  }
+};
 
 const SurveyResponses: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { 
-    currentSurvey,
-    surveyResponses, 
-    surveyByIdLoading,
-    responsesLoading,
-    error, 
-    getSurveyById,
-    getSurveyResponses,
-    getSurveyResponse,
-    deleteSurveyResponse
-  } = useSurvey();
+  const dispatch = useAppDispatch();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Get state from Redux
+  const currentSurvey = useAppSelector(selectCurrentSurvey);
+  const paginatedResponses = useAppSelector(selectPaginatedResponses);
+  const surveyByIdLoading = useAppSelector(selectSurveyByIdLoading);
+  const responsesLoading = useAppSelector(selectPaginatedResponsesLoading);
+  const deleteResponseLoading = useAppSelector(selectDeleteResponseLoading);
 
+  // Local state
   const [selectedResponse, setSelectedResponse] = useState<SurveyResponse | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [responseToDelete, setResponseToDelete] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   
+  // Filter state
+  const [page, setPage] = useState<number>(parseInt(searchParams.get('page') || '1', 10));
+  const [pageSize, setPageSize] = useState<number>(
+    parseInt(searchParams.get('page_size') || String(DEFAULT_PAGE_SIZE), 10)
+  );
+  const [completedOnly, setCompletedOnly] = useState<boolean>(
+    searchParams.get('completed_only') === 'true'
+  );
+  const [searchTerm, setSearchTerm] = useState<string>(searchParams.get('search_term') || '');
+  const [startedAfter, setStartedAfter] = useState<string>(searchParams.get('started_after') || '');
+  const [startedBefore, setStartedBefore] = useState<string>(searchParams.get('started_before') || '');
+  const [respondentId, setRespondentId] = useState<string>(searchParams.get('respondent_id') || '');
+
+  // Create filter options object
+  const createFilterOptions = (): SurveyResponseFilterOptions => {
+    const options: SurveyResponseFilterOptions = {
+      page,
+      page_size: pageSize,
+      completed_only: completedOnly
+    };
+    
+    if (searchTerm) options.search_term = searchTerm;
+    if (startedAfter) options.started_after = startedAfter;
+    if (startedBefore) options.started_before = startedBefore;
+    if (respondentId) options.respondent_id = respondentId;
+    
+    return options;
+  };
+
+  // Update URL search params
+  const updateSearchParams = (options: SurveyResponseFilterOptions) => {
+    const params = new URLSearchParams();
+    
+    params.set('page', String(options.page || 1));
+    params.set('page_size', String(options.page_size || DEFAULT_PAGE_SIZE));
+    if (options.completed_only) params.set('completed_only', String(options.completed_only));
+    if (options.search_term) params.set('search_term', options.search_term);
+    if (options.started_after) params.set('started_after', options.started_after);
+    if (options.started_before) params.set('started_before', options.started_before);
+    if (options.respondent_id) params.set('respondent_id', options.respondent_id);
+    
+    setSearchParams(params);
+  };
+
+  // Load survey and responses
   useEffect(() => {
     if (id) {
-      getSurveyById(id);
-      getSurveyResponses(id, false, true);
+      dispatch(fetchSurveyById({ surveyId: id }));
+      
+      const options = createFilterOptions();
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options }));
+      updateSearchParams(options);
     }
-  }, [getSurveyById, getSurveyResponses, id]);
+  }, [dispatch, id]);
+
+  // Handle filter changes
+  const handleApplyFilters = () => {
+    if (id) {
+      setPage(1); // Reset to first page when applying new filters
+      const options = { ...createFilterOptions(), page: 1 };
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options }));
+      updateSearchParams(options);
+    }
+  };
+
+  // Handle reset filters
+  const handleResetFilters = () => {
+    setPage(1);
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setCompletedOnly(false);
+    setSearchTerm('');
+    setStartedAfter('');
+    setStartedBefore('');
+    setRespondentId('');
+    
+    if (id) {
+      const options = { page: 1, page_size: DEFAULT_PAGE_SIZE };
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options }));
+      updateSearchParams(options);
+    }
+    
+    setFiltersOpen(false);
+  };
+
+  // Handle page change
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+    
+    if (id) {
+      const options = { ...createFilterOptions(), page: value };
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options }));
+      updateSearchParams(options);
+    }
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (event: SelectChangeEvent<number>) => {
+    const newPageSize = Number(event.target.value);
+    setPageSize(newPageSize);
+    setPage(1); // Reset to first page when changing page size
+    
+    if (id) {
+      const options = { ...createFilterOptions(), page: 1, page_size: newPageSize };
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options }));
+      updateSearchParams(options);
+    }
+  };
 
   const handleDeleteDialogOpen = (responseId: string) => {
     setResponseToDelete(responseId);
@@ -55,10 +178,12 @@ const SurveyResponses: React.FC = () => {
 
   const handleConfirmDelete = async () => {
     if (responseToDelete && id) {
-      await deleteSurveyResponse(responseToDelete);
+      await dispatch(deleteSurveyResponse(responseToDelete));
       handleDeleteDialogClose();
+      
       // Refresh the responses list
-      getSurveyResponses(id, false, true);
+      const options = createFilterOptions();
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options, forceRefresh: true }));
     }
   };
 
@@ -66,20 +191,19 @@ const SurveyResponses: React.FC = () => {
     setSelectedResponse(response);
   };
 
+  const handleRefresh = () => {
+    if (id) {
+      const options = createFilterOptions();
+      dispatch(fetchPaginatedSurveyResponses({ surveyId: id, options, forceRefresh: true }));
+    }
+  };
+
   const isLoading = surveyByIdLoading || responsesLoading;
 
-  if (isLoading) {
+  if (isLoading && !paginatedResponses) {
     return (
       <Container sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
         <CircularProgress />
-      </Container>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container sx={{ mt: 4 }}>
-        <Typography color="error" variant="h6">Error: {error}</Typography>
       </Container>
     );
   }
@@ -112,6 +236,8 @@ const SurveyResponses: React.FC = () => {
     
     return 'Unknown Question';
   };
+
+  const responses = paginatedResponses?.items || [];
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -146,6 +272,22 @@ const SurveyResponses: React.FC = () => {
             Survey Responses
           </Typography>
         </Box>
+        
+        <Box>
+          <Tooltip title="Refresh Responses">
+            <IconButton onClick={handleRefresh} disabled={isLoading}>
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+          <Button 
+            variant={filtersOpen ? "contained" : "outlined"}
+            startIcon={filtersOpen ? <CloseIcon /> : <FilterIcon />}
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            sx={{ ml: 1 }}
+          >
+            {filtersOpen ? "Hide Filters" : "Filters"}
+          </Button>
+        </Box>
       </Box>
 
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -159,68 +301,202 @@ const SurveyResponses: React.FC = () => {
         )}
       </Paper>
 
-      {surveyResponses.length === 0 ? (
+      {/* Filters Panel */}
+      {filtersOpen && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Filter Responses
+          </Typography>
+          
+          <Grid container spacing={3} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Search Responses"
+                fullWidth
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                placeholder="Search in responses..."
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Respondent ID"
+                fullWidth
+                value={respondentId}
+                onChange={(e) => setRespondentId(e.target.value)}
+                placeholder="Filter by respondent ID..."
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Started After"
+                type="datetime-local"
+                fullWidth
+                value={startedAfter}
+                onChange={(e) => setStartedAfter(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Started Before"
+                type="datetime-local"
+                fullWidth
+                value={startedBefore}
+                onChange={(e) => setStartedBefore(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={completedOnly}
+                    onChange={(e) => setCompletedOnly(e.target.checked)}
+                  />
+                }
+                label="Show only completed responses"
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Box display="flex" justifyContent="flex-end" gap={2}>
+                <Button 
+                  variant="outlined" 
+                  onClick={handleResetFilters}
+                >
+                  Reset Filters
+                </Button>
+                <Button 
+                  variant="contained" 
+                  onClick={handleApplyFilters}
+                  disabled={isLoading}
+                >
+                  Apply Filters
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </Paper>
+      )}
+
+      {isLoading && (
+        <Box display="flex" justifyContent="center" my={3}>
+          <CircularProgress />
+        </Box>
+      )}
+
+      {responses.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body1" color="textSecondary">
-            No responses have been submitted for this survey yet.
+            No responses match the current filters.
           </Typography>
         </Paper>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Response ID</TableCell>
-                <TableCell>Submitted</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Respondent</TableCell>
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {surveyResponses.map((response) => (
-                <TableRow key={response.id}>
-                  <TableCell>{response.id}</TableCell>
-                  <TableCell>
-                    {response.created_at ? 
-                      format(new Date(response.created_at), 'MMM d, yyyy HH:mm') : 
-                      'Unknown'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={response.is_complete ? "Complete" : "Incomplete"} 
-                      color={response.is_complete ? "success" : "warning"} 
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {response.respondent_id || 'Anonymous'}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box display="flex" justifyContent="center">
-                      <Tooltip title="View Response">
-                        <IconButton 
-                          color="primary"
-                          onClick={() => handleViewResponse(response)}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Response">
-                        <IconButton 
-                          color="error" 
-                          onClick={() => handleDeleteDialogOpen(response.id!)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <>
+          <Paper sx={{ mb: 3 }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Response ID</TableCell>
+                    <TableCell>Started At</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Respondent</TableCell>
+                    <TableCell align="center">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {responses.map((response) => (
+                    <TableRow key={response.id}>
+                      <TableCell>{response.id}</TableCell>
+                      <TableCell>
+                        {formatDate(response.started_at || response.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={response.is_complete ? "Complete" : "Incomplete"} 
+                          color={response.is_complete ? "success" : "warning"} 
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {response.respondent_id || 'Anonymous'}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Box display="flex" justifyContent="center">
+                          <Tooltip title="View Response">
+                            <IconButton 
+                              color="primary"
+                              onClick={() => handleViewResponse(response)}
+                            >
+                              <VisibilityIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete Response">
+                            <IconButton 
+                              color="error" 
+                              onClick={() => handleDeleteDialogOpen(response.id!)}
+                              disabled={deleteResponseLoading}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            
+            {/* Pagination Controls */}
+            <Box p={2} display="flex" justifyContent="space-between" alignItems="center">
+              <Box display="flex" alignItems="center">
+                <Typography variant="body2" mr={2}>
+                  Rows per page:
+                </Typography>
+                <FormControl variant="outlined" size="small">
+                  <Select
+                    value={pageSize}
+                    onChange={handlePageSizeChange}
+                    disabled={isLoading}
+                  >
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <MenuItem key={size} value={size}>
+                        {size}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" ml={2}>
+                  {paginatedResponses && (
+                    `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, paginatedResponses.total)} of ${paginatedResponses.total}`
+                  )}
+                </Typography>
+              </Box>
+              
+              <Pagination
+                count={paginatedResponses?.pages || 1}
+                page={page}
+                onChange={handlePageChange}
+                disabled={isLoading}
+                color="primary"
+              />
+            </Box>
+          </Paper>
+        </>
       )}
 
       {/* Response Details Dialog */}
@@ -240,11 +516,9 @@ const SurveyResponses: React.FC = () => {
           <Box mb={2}>
             <Grid container spacing={2}>
               <Grid item xs={6}>
-                <Typography variant="subtitle2" color="textSecondary">Submitted</Typography>
+                <Typography variant="subtitle2" color="textSecondary">Started At</Typography>
                 <Typography variant="body1">
-                  {selectedResponse?.created_at ? 
-                    format(new Date(selectedResponse.created_at), 'MMM d, yyyy HH:mm') : 
-                    'Unknown'}
+                  {formatDate(selectedResponse?.started_at || selectedResponse?.created_at)}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -259,7 +533,7 @@ const SurveyResponses: React.FC = () => {
                 <Grid item xs={6}>
                   <Typography variant="subtitle2" color="textSecondary">Completed At</Typography>
                   <Typography variant="body1">
-                    {format(new Date(selectedResponse.completed_at), 'MMM d, yyyy HH:mm')}
+                    {format(parseISO(selectedResponse.completed_at), 'MMM d, yyyy HH:mm')}
                   </Typography>
                 </Grid>
               )}
@@ -378,8 +652,8 @@ const SurveyResponses: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteDialogClose}>Cancel</Button>
-          <Button onClick={handleConfirmDelete} color="error" autoFocus>
-            Delete
+          <Button onClick={handleConfirmDelete} color="error" autoFocus disabled={deleteResponseLoading}>
+            {deleteResponseLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
