@@ -2,7 +2,7 @@
 export const PATHS = {
     // Public routes
     PUBLIC: {
-        HOME: { path: '/', title: 'NH Education Facts' },
+        HOME: { path: '/', title: 'Northern Intelligence' },
 
         // Survey management routes
         SURVEYS: { path: '/surveys', title: 'Survey Management' },
