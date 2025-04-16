@@ -400,7 +400,7 @@ const SurveyAnalysis: React.FC = () => {
               size="small"
             />
             <Typography variant="body2" color="textSecondary">
-              Created: {formatDate(currentSurvey.created_at)}
+              Created: {formatDate(currentSurvey.date_created)}
             </Typography>
           </Box>
         </Paper>

@@ -12,6 +12,10 @@ export default function Home() {
     navigate(PATHS.PUBLIC.SURVEYS.path);
   };
 
+  const handleGoToSurveysV2 = () => {
+    navigate(PATHS.PUBLIC.SURVEYS_V2.path);
+  };
+
   return (
     <Box sx={{ 
       padding: '24px',
@@ -33,6 +37,14 @@ export default function Home() {
         onClick={handleGoToSurveys}
       >
         Go to Survey Management
+      </Button>
+      <Button 
+        variant="contained" 
+        color="primary" 
+        size="large"
+        onClick={handleGoToSurveysV2}
+      >
+        Go to Survey Management V2
       </Button>
     </Box>
   );
