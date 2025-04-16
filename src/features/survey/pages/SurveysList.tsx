@@ -9,8 +9,9 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
   Visibility as VisibilityIcon, Assessment as AssessmentIcon } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
 import { format } from 'date-fns';
+import useSurvey from '../hooks/useSurvey';
+import { Survey } from '@/store/slices/surveySlice';
 
 const SurveysList: React.FC = () => {
   const navigate = useNavigate();
@@ -51,6 +52,8 @@ const SurveysList: React.FC = () => {
     if (surveyToDelete) {
       await removeSurvey(surveyToDelete);
       handleDeleteDialogClose();
+      // Refresh surveys after deletion
+      getSurveys(false, true);
     }
   };
 
@@ -87,7 +90,7 @@ const SurveysList: React.FC = () => {
         </Button>
       </Box>
       
-      {surveys.length === 0 ? (
+      {surveys && surveys.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body1" color="textSecondary">
             No surveys found. Create your first survey to get started.
@@ -106,7 +109,7 @@ const SurveysList: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {surveys.map((survey) => (
+              {surveys && surveys.map((survey: Survey) => (
                 <TableRow key={survey.id}>
                   <TableCell>{survey.title}</TableCell>
                   <TableCell>

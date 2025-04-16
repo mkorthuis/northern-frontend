@@ -2,6 +2,7 @@ import { BASE_API_URL } from '../config/constants';
 import { buildUrl, fetchData } from '../utils/apiUtils';
 import axiosInstance from '../config/axios';
 
+// The base URL already includes '/api/v1/' so we only need to append 'survey/'
 const BASE_ENDPOINT_URL = BASE_API_URL + 'survey/';
 
 // Type definitions based on the API schema
@@ -141,6 +142,38 @@ interface SurveyResponseFilterOptions {
     search_term?: string | null;
 }
 
+// Update the existing interface or add QuestionGet type
+interface QuestionGet {
+    id: string; // uuid
+    title: string;
+    description?: string | null;
+    is_required: boolean;
+    order_index: number;
+    external_question_id?: string | null;
+    validation_rules?: object | null;
+    display_logic?: object | null;
+    allow_multiple: boolean;
+    max_answers?: number | null;
+    type: QuestionTypeGet;
+    options: QuestionOptionGet[];
+}
+
+interface QuestionTypeGet {
+    id: number;
+    name: string;
+    description?: string | null;
+}
+
+interface QuestionOptionGet {
+    id: string; // uuid
+    text: string;
+    order_index: number;
+    is_other_option: boolean;
+    score?: number | null;
+    row_label?: string | null;
+    column_label?: string | null;
+}
+
 // Helper function specific to survey endpoints
 const buildSurveyUrl = (endpoint: string, options: Record<string, any> = {}): string => {
     return buildUrl(BASE_ENDPOINT_URL, endpoint, options);
@@ -167,11 +200,18 @@ export const surveyApi = {
     addQuestion: (surveyId: string, questionData: QuestionCreate) => 
         axiosInstance.post(buildSurveyUrl(`${surveyId}/questions`), questionData),
     
+    getQuestion: (questionId: string, forceRefresh = false) =>
+        fetchData(buildSurveyUrl(`questions/${questionId}`), forceRefresh),
+    
     updateQuestion: (questionId: string, questionData: Partial<QuestionCreate>) => 
         axiosInstance.put(buildSurveyUrl(`questions/${questionId}`), questionData),
     
     deleteQuestion: (questionId: string) => 
         axiosInstance.delete(buildSurveyUrl(`questions/${questionId}`)),
+    
+    // Get survey questions
+    getSurveyQuestions: (surveyId: string, forceRefresh = false) =>
+        fetchData(buildSurveyUrl(`${surveyId}/questions`), forceRefresh),
     
     // Survey response endpoints
     createSurveyResponse: (responseData: SurveyResponseCreate) => 

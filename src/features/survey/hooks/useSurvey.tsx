@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   selectSurveys,
   selectCurrentSurvey,
@@ -14,6 +14,8 @@ import {
   selectAddQuestionLoading,
   selectUpdateQuestionLoading,
   selectDeleteQuestionLoading,
+  selectPaginatedResponses,
+  selectPaginatedResponsesLoading,
   fetchSurveys,
   fetchSurveyById,
   createSurvey,
@@ -23,32 +25,37 @@ import {
   updateQuestion,
   deleteQuestion,
   fetchSurveyResponses,
+  fetchPaginatedSurveyResponses,
   fetchSurveyResponse,
+  createSurveyResponse,
+  updateSurveyResponse,
   deleteSurveyResponse,
   clearSurveyData,
   Survey,
   SurveyQuestion,
-  SurveyResponse
+  SurveyResponse,
+  SurveyResponseFilterOptions
 } from '@/store/slices/surveySlice';
-import { useAppDispatch } from '@/store/hooks';
 
 const useSurvey = () => {
   const dispatch = useAppDispatch();
   
   // Select data from the store
-  const surveys = useSelector(selectSurveys);
-  const currentSurvey = useSelector(selectCurrentSurvey);
-  const surveyResponses = useSelector(selectSurveyResponses);
-  const currentResponse = useSelector(selectCurrentResponse);
-  const loading = useSelector(selectSurveyLoading);
-  const error = useSelector(selectSurveyError);
-  const surveysLoading = useSelector(selectSurveysLoading);
-  const surveyByIdLoading = useSelector(selectSurveyByIdLoading);
-  const responsesLoading = useSelector(selectResponsesLoading);
-  const createSurveyLoading = useSelector(selectCreateSurveyLoading);
-  const addQuestionLoading = useSelector(selectAddQuestionLoading);
-  const updateQuestionLoading = useSelector(selectUpdateQuestionLoading);
-  const deleteQuestionLoading = useSelector(selectDeleteQuestionLoading);
+  const surveys = useAppSelector(selectSurveys);
+  const currentSurvey = useAppSelector(selectCurrentSurvey);
+  const surveyResponses = useAppSelector(selectSurveyResponses);
+  const paginatedResponses = useAppSelector(selectPaginatedResponses);
+  const currentResponse = useAppSelector(selectCurrentResponse);
+  const loading = useAppSelector(selectSurveyLoading);
+  const error = useAppSelector(selectSurveyError);
+  const surveysLoading = useAppSelector(selectSurveysLoading);
+  const surveyByIdLoading = useAppSelector(selectSurveyByIdLoading);
+  const responsesLoading = useAppSelector(selectResponsesLoading);
+  const paginatedResponsesLoading = useAppSelector(selectPaginatedResponsesLoading);
+  const createSurveyLoading = useAppSelector(selectCreateSurveyLoading);
+  const addQuestionLoading = useAppSelector(selectAddQuestionLoading);
+  const updateQuestionLoading = useAppSelector(selectUpdateQuestionLoading);
+  const deleteQuestionLoading = useAppSelector(selectDeleteQuestionLoading);
 
   // Define action dispatchers
   const getSurveys = useCallback((activeOnly = false, forceRefresh = false) => {
@@ -75,11 +82,26 @@ const useSurvey = () => {
     return dispatch(fetchSurveyResponses({ surveyId, completedOnly, forceRefresh }));
   }, [dispatch]);
 
+  const getSurveyResponsesPaginated = useCallback(
+    (surveyId: string, options: SurveyResponseFilterOptions = {}, forceRefresh = false) => {
+      return dispatch(fetchPaginatedSurveyResponses({ surveyId, options, forceRefresh }));
+    },
+    [dispatch]
+  );
+
   const getSurveyResponse = useCallback((responseId: string, forceRefresh = false) => {
     return dispatch(fetchSurveyResponse({ responseId, forceRefresh }));
   }, [dispatch]);
 
-  const deleteSurveyResponseAction = useCallback((responseId: string) => {
+  const createResponse = useCallback((responseData: any) => {
+    return dispatch(createSurveyResponse(responseData));
+  }, [dispatch]);
+
+  const updateResponse = useCallback((responseId: string, responseData: any) => {
+    return dispatch(updateSurveyResponse({ responseId, responseData }));
+  }, [dispatch]);
+
+  const deleteResponse = useCallback((responseId: string) => {
     return dispatch(deleteSurveyResponse(responseId));
   }, [dispatch]);
 
@@ -105,12 +127,14 @@ const useSurvey = () => {
     surveys,
     currentSurvey,
     surveyResponses,
+    paginatedResponses,
     currentResponse,
     loading,
     error,
     surveysLoading,
     surveyByIdLoading,
     responsesLoading,
+    paginatedResponsesLoading,
     createSurveyLoading,
     addQuestionLoading,
     updateQuestionLoading,
@@ -126,8 +150,11 @@ const useSurvey = () => {
     editQuestion,
     removeQuestion,
     getSurveyResponses,
+    getSurveyResponsesPaginated,
     getSurveyResponse,
-    deleteSurveyResponse: deleteSurveyResponseAction,
+    createSurveyResponse: createResponse,
+    updateSurveyResponse: updateResponse,
+    deleteSurveyResponse: deleteResponse,
     clearSurvey
   };
 };
