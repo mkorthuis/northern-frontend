@@ -10,7 +10,7 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
 import { format } from 'date-fns';
-import useSurvey from '../hooks/useSurvey';
+import useSurvey from '../hooks/useSurveys';
 import { Survey } from '@/store/slices/surveySlice';
 
 const SurveysList: React.FC = () => {

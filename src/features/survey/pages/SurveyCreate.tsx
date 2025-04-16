@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
+import useSurvey from '../hooks/useSurveys';
 import { ArrowBack, Save, ContentPaste, Upload } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { Survey, SurveyQuestion } from '@/store/slices/surveySlice';

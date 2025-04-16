@@ -33,6 +33,7 @@ import {
   clearSurveyData,
   Survey,
   SurveyQuestion,
+  SurveyResponse,
   SurveyResponseFilterOptions
 } from '@/store/slices/surveySlice';
 

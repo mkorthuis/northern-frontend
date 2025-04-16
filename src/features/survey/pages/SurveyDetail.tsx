@@ -6,14 +6,14 @@ import {
 } from '@mui/material';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
+import useSurvey from '../hooks/useSurveys';
 import { ArrowBack, Edit, Assessment, Add, CloudUpload } from '@mui/icons-material';
 import { format } from 'date-fns';
 import AddQuestionForm from '../components/AddQuestionForm';
 import EditQuestionForm from '../components/EditQuestionForm';
 import SurveyResponseUpload from '../components/SurveyResponseUpload';
 import { getQuestionTypeById } from '@/constants/questionTypes';
-import { SurveyQuestion } from '@/store/slices/surveySlice';
+import { SurveyQuestion, SurveySection } from '@/store/slices/surveySlice';
 
 const SurveyDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -354,7 +354,7 @@ const SurveyDetail: React.FC = () => {
       
       {/* Show sections if they exist */}
       {currentSurvey.sections && currentSurvey.sections.length > 0 ? (
-        currentSurvey.sections.map((section) => (
+        currentSurvey.sections.map((section: SurveySection) => (
           <Card key={section.id} sx={{ mb: 3 }}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
@@ -380,7 +380,7 @@ const SurveyDetail: React.FC = () => {
                   <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                     Questions in this section
                   </Typography>
-                  {section.questions.map((question, index) => renderQuestionItem(question, index, section.id))}
+                  {section.questions.map((question: SurveyQuestion, index: number) => renderQuestionItem(question, index, section.id))}
                 </Box>
               ) : (
                 <Typography variant="body2" color="textSecondary">
@@ -398,7 +398,7 @@ const SurveyDetail: React.FC = () => {
               Questions
             </Typography>
             
-            {currentSurvey.questions.map((question, index) => renderQuestionItem(question, index))}
+            {currentSurvey.questions.map((question: SurveyQuestion, index: number) => renderQuestionItem(question, index))}
           </CardContent>
         </Card>
       ) : (
