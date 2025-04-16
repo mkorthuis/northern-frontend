@@ -11,6 +11,8 @@ import SurveysList from "@/features/survey/pages/SurveysList";
 import SurveyDetail from "@/features/survey/pages/SurveyDetail";
 import SurveyResponses from "@/features/survey/pages/SurveyResponses";
 import SurveyCreate from "@/features/survey/pages/SurveyCreate";
+import SurveyAnalysis from "@/features/survey/pages/SurveyAnalysis";
+import AnalysisDetails from "@/features/survey/pages/AnalysisDetails";
 
 import NotFound from "@components/NotFound/NotFound";
 import { PATHS } from './paths';
@@ -31,6 +33,8 @@ const router = createBrowserRouter(
         { path: PATHS.PUBLIC.SURVEY_DETAIL.path, element: <SurveyDetail /> },
         { path: PATHS.PUBLIC.SURVEY_RESPONSES.path, element: <SurveyResponses /> },
         { path: PATHS.PUBLIC.SURVEY_CREATE.path, element: <SurveyCreate /> },
+        { path: PATHS.PUBLIC.SURVEY_ANALYSIS.path, element: <SurveyAnalysis /> },
+        { path: PATHS.PUBLIC.ANALYSIS_DETAILS.path, element: <AnalysisDetails /> },
         { path: PATHS.PUBLIC.HOME.path, element: <Home /> },
       ]
     },

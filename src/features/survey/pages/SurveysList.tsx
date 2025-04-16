@@ -6,7 +6,8 @@ import {
   DialogActions, DialogContent, DialogContentText, DialogTitle
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
-  Visibility as VisibilityIcon, Assessment as AssessmentIcon } from '@mui/icons-material';
+  Visibility as VisibilityIcon, Assessment as AssessmentIcon,
+  Analytics as AnalyticsIcon } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
 import { format } from 'date-fns';
@@ -36,6 +37,10 @@ const SurveysList: React.FC = () => {
 
   const handleViewSurvey = (surveyId: string) => {
     navigate(PATHS.PUBLIC.SURVEY_DETAIL.path.replace(':id', surveyId));
+  };
+
+  const handleViewAnalysis = (surveyId: string) => {
+    navigate(PATHS.PUBLIC.SURVEY_ANALYSIS.path.replace(':id', surveyId));
   };
 
   const handleDeleteDialogOpen = (surveyId: string) => {
@@ -145,6 +150,14 @@ const SurveysList: React.FC = () => {
                           onClick={() => handleViewResponses(survey.id!)}
                         >
                           <AssessmentIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Survey Analysis">
+                        <IconButton 
+                          color="secondary" 
+                          onClick={() => handleViewAnalysis(survey.id!)}
+                        >
+                          <AnalyticsIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Survey">
