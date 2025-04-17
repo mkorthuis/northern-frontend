@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { 
   Box, 
   Typography, 
@@ -24,7 +25,6 @@ import {
   Chip,
   OutlinedInput
 } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { 
@@ -34,11 +34,11 @@ import {
   createSurveyAnalysisQuestion,
   deleteSurveyAnalysisQuestion,
   fetchSurveyQuestionTopics,
+  fetchSurveyReportSegments,
   fetchSurveyAnalysisById,
   ChartType,
-  SurveyAnalysis,
-  SurveyAnalysisQuestion,
-  SurveyQuestionTopic
+  SurveyQuestionTopic,
+  SurveyReportSegment
 } from '@/store/slices/surveyAnalysisSlice';
 import { fetchSurveyById } from '@/store/slices/surveySlice';
 import { getQuestionTypeById } from '@/constants/questionTypes';
@@ -53,7 +53,163 @@ interface QuestionSettings {
   chartTypeId: number;
   sortByValue: boolean;
   topicIds: string[];
+  segmentIds: string[];
 }
+
+interface FormErrors {
+  title: string;
+  questions: string;
+}
+
+interface SnackbarState {
+  open: boolean;
+  message: string;
+  severity: 'success' | 'error' | 'info' | 'warning';
+}
+
+// Component for rendering question settings
+interface QuestionSettingsProps {
+  questionId: string;
+  settings: QuestionSettings;
+  chartTypes: ChartType[];
+  topics: SurveyQuestionTopic[];
+  segments: SurveyReportSegment[];
+  isSubmitting: boolean;
+  chartTypesLoading: boolean;
+  topicsLoading: boolean;
+  segmentsLoading: boolean;
+  onChartTypeChange: (questionId: string, chartTypeId: number) => void;
+  onSortByValueChange: (questionId: string, sortByValue: boolean) => void;
+  onTopicChange: (questionId: string, topicIds: string[]) => void;
+  onSegmentChange: (questionId: string, segmentIds: string[]) => void;
+}
+
+const QuestionSettingsPanel: React.FC<QuestionSettingsProps> = ({
+  questionId,
+  settings,
+  chartTypes,
+  topics,
+  segments,
+  isSubmitting,
+  chartTypesLoading,
+  topicsLoading,
+  segmentsLoading,
+  onChartTypeChange,
+  onSortByValueChange,
+  onTopicChange,
+  onSegmentChange
+}) => (
+  <Box sx={{ pl: 7, pr: 2, pb: 2 }}>
+    <Typography variant="subtitle2" gutterBottom>
+      Chart Settings
+    </Typography>
+    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      <FormControl sx={{ minWidth: 200 }} size="small">
+        <InputLabel>Chart Type</InputLabel>
+        <Select
+          value={settings.chartTypeId}
+          label="Chart Type"
+          onChange={(e) => onChartTypeChange(questionId, Number(e.target.value))}
+          disabled={isSubmitting || chartTypes.length === 0}
+        >
+          {chartTypes.map((type) => (
+            <MenuItem key={type.id} value={type.id}>
+              {type.name}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+      
+      <FormControl sx={{ minWidth: 200 }} size="small">
+        <InputLabel>Sort Options</InputLabel>
+        <Select
+          value={settings.sortByValue ? 'value' : 'order'}
+          label="Sort Options"
+          onChange={(e) => onSortByValueChange(questionId, e.target.value === 'value')}
+          disabled={isSubmitting}
+        >
+          <MenuItem value="order">By Original Order</MenuItem>
+          <MenuItem value="value">By Value (Count/Percentage)</MenuItem>
+        </Select>
+        <FormHelperText>How to sort options in the chart</FormHelperText>
+      </FormControl>
+
+      <FormControl sx={{ minWidth: 200 }} size="small">
+        <InputLabel>Topics</InputLabel>
+        <Select
+          multiple
+          value={settings.topicIds}
+          onChange={(e) => onTopicChange(questionId, e.target.value as string[])}
+          input={<OutlinedInput label="Topics" />}
+          disabled={isSubmitting || topicsLoading}
+          renderValue={(selected) => (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {selected.map((topicId) => {
+                const topic = topics.find(t => t.id === topicId);
+                return topic ? (
+                  <Chip key={topicId} label={topic.name} size="small" />
+                ) : null;
+              })}
+            </Box>
+          )}
+        >
+          {topicsLoading ? (
+            <MenuItem disabled>
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+              Loading topics...
+            </MenuItem>
+          ) : topics.length === 0 ? (
+            <MenuItem disabled>No topics available</MenuItem>
+          ) : (
+            topics.map((topic) => (
+              <MenuItem key={topic.id} value={topic.id}>
+                {topic.name}
+              </MenuItem>
+            ))
+          )}
+        </Select>
+        <FormHelperText>Assign topics to this question</FormHelperText>
+      </FormControl>
+
+      <FormControl sx={{ minWidth: 200 }} size="small">
+        <InputLabel>Report Segments</InputLabel>
+        <Select
+          multiple
+          value={settings.segmentIds}
+          onChange={(e) => onSegmentChange(questionId, e.target.value as string[])}
+          input={<OutlinedInput label="Report Segments" />}
+          disabled={isSubmitting || segmentsLoading}
+          renderValue={(selected) => (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+              {selected.map((segmentId) => {
+                const segment = segments.find(s => s.id === segmentId);
+                return segment ? (
+                  <Chip key={segmentId} label={segment.name} size="small" />
+                ) : null;
+              })}
+            </Box>
+          )}
+        >
+          {segmentsLoading ? (
+            <MenuItem disabled>
+              <CircularProgress size={20} sx={{ mr: 1 }} />
+              Loading segments...
+            </MenuItem>
+          ) : segments.length === 0 ? (
+            <MenuItem disabled>No segments available</MenuItem>
+          ) : (
+            segments.map((segment) => (
+              <MenuItem key={segment.id} value={segment.id}>
+                {segment.name}
+              </MenuItem>
+            ))
+          )}
+        </Select>
+        <FormHelperText>Assign report segments to this question</FormHelperText>
+      </FormControl>
+    </Box>
+  </Box>
+);
 
 const EditSurveyAnalysis: React.FC = () => {
   const { surveyId, analysisId } = useParams<{ surveyId: string; analysisId: string }>();
@@ -61,12 +217,13 @@ const EditSurveyAnalysis: React.FC = () => {
   const dispatch = useAppDispatch();
 
   // Get data from Redux store
-  const { chartTypes, error: analysisError, topics, currentAnalysis } = useAppSelector((state) => state.surveyAnalysis);
+  const { chartTypes, error: analysisError, topics, segments, currentAnalysis } = useAppSelector((state) => state.surveyAnalysis);
   const { currentSurvey, loadingStates: surveyLoadingStates } = useAppSelector((state) => state.survey);
   const chartTypesLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.chartTypes);
   const updateAnalysisLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.updateAnalysis);
   const updateQuestionLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.updateQuestion);
   const topicsLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.topics);
+  const segmentsLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.segments);
   
   // Local form state
   const [formData, setFormData] = useState<AnalysisFormData>({
@@ -75,14 +232,14 @@ const EditSurveyAnalysis: React.FC = () => {
   });
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [questionSettings, setQuestionSettings] = useState<Map<string, QuestionSettings>>(new Map());
-  const [formErrors, setFormErrors] = useState({
+  const [formErrors, setFormErrors] = useState<FormErrors>({
     title: '',
     questions: ''
   });
-  const [snackbar, setSnackbar] = useState({
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
-    severity: 'info' as 'success' | 'error' | 'info' | 'warning'
+    severity: 'info'
   });
   const [success, setSuccess] = useState(false);
 
@@ -91,138 +248,61 @@ const EditSurveyAnalysis: React.FC = () => {
   const isSubmitting = updateAnalysisLoading || updateQuestionLoading;
   const isLoading = isSurveyLoading || chartTypesLoading || isSubmitting;
 
-  // Fetch initial data
+  // Effects
   useEffect(() => {
-    if (surveyId) {
-      dispatch(fetchSurveyById({ surveyId, forceRefresh: true }));
-      dispatch(fetchSurveyQuestionTopics({ surveyId, forceRefresh: true }));
-    }
+    if (!surveyId) return;
+    
+    // Fetch survey data, topics, and segments
+    dispatch(fetchSurveyById({ surveyId, forceRefresh: true }));
+    dispatch(fetchSurveyQuestionTopics({ surveyId, forceRefresh: true }));
+    dispatch(fetchSurveyReportSegments({ surveyId, forceRefresh: true }));
   }, [surveyId, dispatch]);
 
   useEffect(() => {
-    if (analysisId) {
-      dispatch(fetchSurveyAnalysisById({ analysisId, forceRefresh: true }));
-    }
+    if (!analysisId) return;
+    
+    // Fetch analysis data
+    dispatch(fetchSurveyAnalysisById({ analysisId, forceRefresh: true }));
   }, [analysisId, dispatch]);
 
   useEffect(() => {
+    // Fetch chart types
     dispatch(fetchChartTypes({ forceRefresh: true }));
   }, [dispatch]);
 
-  // Initialize form data when currentAnalysis is loaded
   useEffect(() => {
-    if (currentAnalysis) {
-      setFormData({
-        title: currentAnalysis.title,
-        description: currentAnalysis.description || ''
-      });
+    if (!currentAnalysis) return;
 
-      // Initialize selected questions and their settings
-      const selectedIds: string[] = [];
-      const settings = new Map<string, QuestionSettings>();
+    // Initialize form data from current analysis
+    setFormData({
+      title: currentAnalysis.title,
+      description: currentAnalysis.description || ''
+    });
 
-      currentAnalysis.analysis_questions?.forEach(aq => {
-        if (aq.question.id) {
-          selectedIds.push(aq.question.id);
-          settings.set(aq.question.id, {
-            chartTypeId: aq.chart_type_id,
-            sortByValue: aq.sort_by_value,
-            topicIds: aq.topics?.map(t => t.id as string) || []
-          });
-        }
-      });
+    // Initialize selected questions and their settings
+    const selectedIds: string[] = [];
+    const settings = new Map<string, QuestionSettings>();
 
-      setSelectedQuestions(selectedIds);
-      setQuestionSettings(settings);
-    }
-  }, [currentAnalysis]);
-
-  // Handle input changes
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-
-    // Clear validation error when field is changed
-    if (name === 'title') {
-      setFormErrors(prev => ({ ...prev, title: '' }));
-    }
-  };
-
-  // Handle question selection
-  const handleQuestionToggle = (questionId: string) => {
-    setSelectedQuestions(prev => {
-      if (prev.includes(questionId)) {
-        // Remove from selected
-        const newSelected = prev.filter(id => id !== questionId);
-        
-        // Also remove from question settings
-        const newSettings = new Map(questionSettings);
-        newSettings.delete(questionId);
-        setQuestionSettings(newSettings);
-        
-        // Clear questions error if there are now selected questions
-        if (newSelected.length > 0) {
-          setFormErrors(prev => ({ ...prev, questions: '' }));
-        }
-        
-        return newSelected;
-      } else {
-        // Add to selected with default settings
-        const defaultChartTypeId = chartTypes.length > 0 ? chartTypes[0].id : 1;
-        const newSettings = new Map(questionSettings);
-        newSettings.set(questionId, { 
-          chartTypeId: defaultChartTypeId, 
-          sortByValue: false,
-          topicIds: [] 
+    currentAnalysis.analysis_questions?.forEach(aq => {
+      if (aq.question.id) {
+        selectedIds.push(aq.question.id);
+        settings.set(aq.question.id, {
+          chartTypeId: aq.chart_type_id,
+          sortByValue: aq.sort_by_value,
+          topicIds: aq.topics?.map(t => t.id as string) || [],
+          segmentIds: aq.report_segments?.map(s => s.id as string) || []
         });
-        setQuestionSettings(newSettings);
-        
-        // Clear questions error
-        setFormErrors(prev => ({ ...prev, questions: '' }));
-        
-        return [...prev, questionId];
       }
     });
-  };
 
-  // Handle chart type selection for a question
-  const handleChartTypeChange = (questionId: string, chartTypeId: number) => {
-    setQuestionSettings(prev => {
-      const newSettings = new Map(prev);
-      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [] };
-      newSettings.set(questionId, { ...current, chartTypeId });
-      return newSettings;
-    });
-  };
+    setSelectedQuestions(selectedIds);
+    setQuestionSettings(settings);
+  }, [currentAnalysis]);
 
-  // Handle sort by value toggle for a question
-  const handleSortByValueChange = (questionId: string, sortByValue: boolean) => {
-    setQuestionSettings(prev => {
-      const newSettings = new Map(prev);
-      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [] };
-      newSettings.set(questionId, { ...current, sortByValue });
-      return newSettings;
-    });
-  };
-
-  // Handle topic selection
-  const handleTopicChange = (questionId: string, topicIds: string[]) => {
-    setQuestionSettings(prev => {
-      const newSettings = new Map(prev);
-      const current = newSettings.get(questionId) || { 
-        chartTypeId: chartTypes[0]?.id || 1, 
-        sortByValue: false,
-        topicIds: []
-      };
-      newSettings.set(questionId, { ...current, topicIds });
-      return newSettings;
-    });
-  };
-
-  // Validate form
+  // Form validation
   const validateForm = (): boolean => {
+    const newErrors: FormErrors = { title: '', questions: '' };
     let isValid = true;
-    const newErrors = { title: '', questions: '' };
 
     if (!formData.title.trim()) {
       newErrors.title = 'Title is required';
@@ -238,7 +318,104 @@ const EditSurveyAnalysis: React.FC = () => {
     return isValid;
   };
 
-  // Handle form submission
+  // Event handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+
+    if (name === 'title') {
+      setFormErrors(prev => ({ ...prev, title: '' }));
+    }
+  };
+
+  const handleQuestionToggle = (questionId: string) => {
+    setSelectedQuestions(prev => {
+      if (prev.includes(questionId)) {
+        // Remove question
+        const newSelected = prev.filter(id => id !== questionId);
+        const newSettings = new Map(questionSettings);
+        newSettings.delete(questionId);
+        setQuestionSettings(newSettings);
+        
+        if (newSelected.length > 0) {
+          setFormErrors(prev => ({ ...prev, questions: '' }));
+        }
+        
+        return newSelected;
+      } else {
+        // Add question
+        const defaultChartTypeId = chartTypes.length > 0 ? chartTypes[0].id : 1;
+        const newSettings = new Map(questionSettings);
+        newSettings.set(questionId, { 
+          chartTypeId: defaultChartTypeId, 
+          sortByValue: false,
+          topicIds: [],
+          segmentIds: []
+        });
+        setQuestionSettings(newSettings);
+        setFormErrors(prev => ({ ...prev, questions: '' }));
+        
+        return [...prev, questionId];
+      }
+    });
+  };
+
+  const handleChartTypeChange = (questionId: string, chartTypeId: number) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: 1, 
+        sortByValue: false, 
+        topicIds: [],
+        segmentIds: []
+      };
+      newSettings.set(questionId, { ...current, chartTypeId });
+      return newSettings;
+    });
+  };
+
+  const handleSortByValueChange = (questionId: string, sortByValue: boolean) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: 1, 
+        sortByValue: false, 
+        topicIds: [],
+        segmentIds: []
+      };
+      newSettings.set(questionId, { ...current, sortByValue });
+      return newSettings;
+    });
+  };
+
+  const handleTopicChange = (questionId: string, topicIds: string[]) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: chartTypes[0]?.id || 1, 
+        sortByValue: false,
+        topicIds: [],
+        segmentIds: []
+      };
+      newSettings.set(questionId, { ...current, topicIds });
+      return newSettings;
+    });
+  };
+
+  const handleSegmentChange = (questionId: string, segmentIds: string[]) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: chartTypes[0]?.id || 1, 
+        sortByValue: false,
+        topicIds: [],
+        segmentIds: []
+      };
+      newSettings.set(questionId, { ...current, segmentIds });
+      return newSettings;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -247,29 +424,27 @@ const EditSurveyAnalysis: React.FC = () => {
     }
 
     try {
-      // Update the survey analysis
-      const surveyAnalysisData = {
-        survey_id: surveyId,
-        title: formData.title,
-        description: formData.description || null
-      };
-
+      // Update analysis
       await dispatch(updateSurveyAnalysis({
         analysisId,
-        analysisData: surveyAnalysisData
+        analysisData: {
+          title: formData.title,
+          description: formData.description || null
+        }
       }));
 
-      // Get current question IDs in the analysis
+      // Get current question IDs
       const currentQuestionIds = new Set(
         currentAnalysis.analysis_questions?.map(aq => aq.question.id as string) || []
       );
 
-      // Handle questions to be added or updated
+      // Update or add questions
       for (const questionId of selectedQuestions) {
         const settings = questionSettings.get(questionId) || {
-          chartTypeId: 1,
+          chartTypeId: chartTypes[0]?.id || 1,
           sortByValue: false,
-          topicIds: []
+          topicIds: [],
+          segmentIds: []
         };
 
         const existingQuestion = currentAnalysis.analysis_questions?.find(
@@ -278,13 +453,16 @@ const EditSurveyAnalysis: React.FC = () => {
 
         if (existingQuestion) {
           // Update existing question
+          const updateData = {
+            chart_type_id: settings.chartTypeId,
+            sort_by_value: settings.sortByValue,
+            topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
+            report_segment_ids: settings.segmentIds.length > 0 ? settings.segmentIds : null
+          };
+          
           await dispatch(updateSurveyAnalysisQuestion({
             questionId: existingQuestion.id as string,
-            questionData: {
-              chart_type_id: settings.chartTypeId,
-              sort_by_value: settings.sortByValue,
-              topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null
-            }
+            questionData: updateData
           }));
         } else {
           // Add new question
@@ -294,12 +472,12 @@ const EditSurveyAnalysis: React.FC = () => {
             chart_type_id: settings.chartTypeId,
             sort_by_value: settings.sortByValue,
             topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
-            report_segment_ids: null
+            report_segment_ids: settings.segmentIds.length > 0 ? settings.segmentIds : null
           }));
         }
       }
 
-      // Handle questions to be removed
+      // Remove questions
       for (const existingQuestionId of currentQuestionIds) {
         if (!selectedQuestions.includes(existingQuestionId)) {
           const questionToRemove = currentAnalysis.analysis_questions?.find(
@@ -318,13 +496,9 @@ const EditSurveyAnalysis: React.FC = () => {
         severity: 'success'
       });
 
-      // Navigate back to the survey details page after a short delay
+      // Navigate back after success
       setTimeout(() => {
-        if (surveyId) {
-          navigate(`${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}`);
-        } else {
-          navigate(PATHS.PUBLIC.SURVEYS_V2.path);
-        }
+        navigate(surveyId ? `${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}` : PATHS.PUBLIC.SURVEYS_V2.path);
       }, 1500);
     } catch (error) {
       console.error('Error updating survey analysis:', error);
@@ -336,17 +510,10 @@ const EditSurveyAnalysis: React.FC = () => {
     }
   };
 
-  // Handle cancel
-  const handleCancel = () => {
-    navigate(-1);
-  };
+  const handleCancel = () => navigate(-1);
+  const handleCloseSnackbar = () => setSnackbar(prev => ({ ...prev, open: false }));
 
-  // Close snackbar
-  const handleCloseSnackbar = () => {
-    setSnackbar(prev => ({ ...prev, open: false }));
-  };
-
-  // Render loading state
+  // Loading state
   if (isSurveyLoading) {
     return (
       <Container maxWidth="lg">
@@ -361,7 +528,7 @@ const EditSurveyAnalysis: React.FC = () => {
     );
   }
 
-  // Render error state
+  // Error state
   if (!currentSurvey || !surveyId || !currentAnalysis) {
     return (
       <Container maxWidth="lg">
@@ -385,7 +552,7 @@ const EditSurveyAnalysis: React.FC = () => {
     );
   }
 
-  // Get sorted questions for display
+  // Get sorted questions
   const sortedQuestions = currentSurvey.questions 
     ? [...currentSurvey.questions].sort((a, b) => a.order_index - b.order_index) 
     : [];
@@ -400,6 +567,7 @@ const EditSurveyAnalysis: React.FC = () => {
         {isLoading && <LinearProgress sx={{ mb: 2 }} />}
         
         <form onSubmit={handleSubmit}>
+          {/* Analysis Details Section */}
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom>
               Analysis Details
@@ -433,6 +601,7 @@ const EditSurveyAnalysis: React.FC = () => {
             />
           </Box>
           
+          {/* Questions Section */}
           <Box sx={{ mb: 4 }}>
             <Typography variant="h6" gutterBottom>
               Select Questions to Analyze
@@ -458,7 +627,8 @@ const EditSurveyAnalysis: React.FC = () => {
                   const settings = questionSettings.get(questionId) || { 
                     chartTypeId: chartTypes[0]?.id || 1, 
                     sortByValue: false, 
-                    topicIds: [] 
+                    topicIds: [],
+                    segmentIds: []
                   };
                   
                   return (
@@ -479,79 +649,21 @@ const EditSurveyAnalysis: React.FC = () => {
                       </ListItem>
                       
                       {isSelected && (
-                        <Box sx={{ pl: 7, pr: 2, pb: 2 }}>
-                          <Typography variant="subtitle2" gutterBottom>
-                            Chart Settings
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                            <FormControl sx={{ minWidth: 200 }} size="small">
-                              <InputLabel>Chart Type</InputLabel>
-                              <Select
-                                value={settings.chartTypeId}
-                                label="Chart Type"
-                                onChange={(e) => handleChartTypeChange(questionId, Number(e.target.value))}
-                                disabled={isSubmitting || chartTypes.length === 0}
-                              >
-                                {chartTypes.map((type) => (
-                                  <MenuItem key={type.id} value={type.id}>
-                                    {type.name}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                            
-                            <FormControl sx={{ minWidth: 200 }} size="small">
-                              <InputLabel>Sort Options</InputLabel>
-                              <Select
-                                value={settings.sortByValue ? 'value' : 'order'}
-                                label="Sort Options"
-                                onChange={(e) => handleSortByValueChange(questionId, e.target.value === 'value')}
-                                disabled={isSubmitting}
-                              >
-                                <MenuItem value="order">By Original Order</MenuItem>
-                                <MenuItem value="value">By Value (Count/Percentage)</MenuItem>
-                              </Select>
-                              <FormHelperText>How to sort options in the chart</FormHelperText>
-                            </FormControl>
-
-                            <FormControl sx={{ minWidth: 200 }} size="small">
-                              <InputLabel>Topics</InputLabel>
-                              <Select
-                                multiple
-                                value={settings.topicIds}
-                                onChange={(e) => handleTopicChange(questionId, e.target.value as string[])}
-                                input={<OutlinedInput label="Topics" />}
-                                disabled={isSubmitting || topicsLoading}
-                                renderValue={(selected) => (
-                                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                    {selected.map((topicId) => {
-                                      const topic = topics.find(t => t.id === topicId);
-                                      return topic ? (
-                                        <Chip key={topicId} label={topic.name} size="small" />
-                                      ) : null;
-                                    })}
-                                  </Box>
-                                )}
-                              >
-                                {topicsLoading ? (
-                                  <MenuItem disabled>
-                                    <CircularProgress size={20} sx={{ mr: 1 }} />
-                                    Loading topics...
-                                  </MenuItem>
-                                ) : topics.length === 0 ? (
-                                  <MenuItem disabled>No topics available</MenuItem>
-                                ) : (
-                                  topics.map((topic) => (
-                                    <MenuItem key={topic.id} value={topic.id}>
-                                      {topic.name}
-                                    </MenuItem>
-                                  ))
-                                )}
-                              </Select>
-                              <FormHelperText>Assign topics to this question</FormHelperText>
-                            </FormControl>
-                          </Box>
-                        </Box>
+                        <QuestionSettingsPanel
+                          questionId={questionId}
+                          settings={settings}
+                          chartTypes={chartTypes}
+                          topics={topics}
+                          segments={segments}
+                          isSubmitting={isSubmitting}
+                          chartTypesLoading={chartTypesLoading}
+                          topicsLoading={topicsLoading}
+                          segmentsLoading={segmentsLoading}
+                          onChartTypeChange={handleChartTypeChange}
+                          onSortByValueChange={handleSortByValueChange}
+                          onTopicChange={handleTopicChange}
+                          onSegmentChange={handleSegmentChange}
+                        />
                       )}
                       <Divider component="li" />
                     </React.Fragment>
@@ -567,6 +679,7 @@ const EditSurveyAnalysis: React.FC = () => {
             )}
           </Box>
           
+          {/* Action Buttons */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
             <Button
               variant="outlined"

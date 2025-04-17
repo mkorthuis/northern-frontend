@@ -18,7 +18,12 @@ import {
   Select,
   MenuItem,
   FormHelperText,
-  OutlinedInput
+  OutlinedInput,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
@@ -27,7 +32,9 @@ import {
   fetchChartTypes,
   fetchSurveyAnalysisById,
   fetchSurveyQuestionTopics,
+  fetchSurveyReportSegments,
   updateSurveyAnalysisQuestion,
+  deleteSurveyAnalysis,
   ChartType,
   SurveyAnalysis,
   SurveyAnalysisQuestion
@@ -40,8 +47,12 @@ const ViewSurveyAnalysis: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
+  // Add state for delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Get data from Redux store
-  const { chartTypes, currentAnalysis, topics } = useAppSelector((state) => state.surveyAnalysis);
+  const { chartTypes, currentAnalysis, topics, segments } = useAppSelector((state) => state.surveyAnalysis);
   const { currentSurvey, loadingStates: surveyLoadingStates } = useAppSelector((state) => state.survey);
   const analysisLoadingStates = useAppSelector((state) => state.surveyAnalysis.loadingStates);
 
@@ -50,15 +61,17 @@ const ViewSurveyAnalysis: React.FC = () => {
   const isAnalysisLoading = analysisLoadingStates.analysis;
   const isChartTypesLoading = analysisLoadingStates.chartTypes;
   const isTopicsLoading = analysisLoadingStates.topics;
+  const isSegmentsLoading = analysisLoadingStates.segments;
   const isUpdateQuestionLoading = analysisLoadingStates.updateQuestion;
 
-  const isLoading = isSurveyLoading || isAnalysisLoading || isChartTypesLoading || isTopicsLoading;
+  const isLoading = isSurveyLoading || isAnalysisLoading || isChartTypesLoading || isTopicsLoading || isSegmentsLoading;
 
   // Fetch data when component mounts
   useEffect(() => {
     if (surveyId) {
       dispatch(fetchSurveyById({ surveyId, forceRefresh: true }));
       dispatch(fetchSurveyQuestionTopics({ surveyId, forceRefresh: true }));
+      dispatch(fetchSurveyReportSegments({ surveyId, forceRefresh: true }));
     }
   }, [surveyId, dispatch]);
 
@@ -82,7 +95,8 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: chartTypeId,
           sort_by_value: question.sort_by_value,
-          topic_ids: question.topics?.map(t => t.id as string) || null
+          topic_ids: question.topics?.map(t => t.id as string) || null,
+          report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
       }));
     } catch (error) {
@@ -100,7 +114,8 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: question.chart_type_id,
           sort_by_value: sortByValue,
-          topic_ids: question.topics?.map(t => t.id as string) || null
+          topic_ids: question.topics?.map(t => t.id as string) || null,
+          report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
       }));
     } catch (error) {
@@ -118,7 +133,8 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: question.chart_type_id,
           sort_by_value: question.sort_by_value,
-          topic_ids: topicIds.length > 0 ? topicIds : null
+          topic_ids: topicIds.length > 0 ? topicIds : null,
+          report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
       }));
     } catch (error) {
@@ -132,6 +148,25 @@ const ViewSurveyAnalysis: React.FC = () => {
       navigate(`${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}`);
     } else {
       navigate(PATHS.PUBLIC.SURVEYS_V2.path);
+    }
+  };
+
+  // Handle delete analysis
+  const handleDeleteAnalysis = async () => {
+    if (!analysisId) return;
+    
+    setIsDeleting(true);
+    try {
+      const resultAction = await dispatch(deleteSurveyAnalysis(analysisId));
+      if (resultAction.meta.requestStatus === 'fulfilled') {
+        // Navigate back to survey page after successful deletion
+        navigate(`${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete analysis:', error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
     }
   };
 
@@ -185,9 +220,16 @@ const ViewSurveyAnalysis: React.FC = () => {
             <Button 
               variant="contained" 
               color="primary" 
-              onClick={() => navigate(`${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}/analysis/${analysisId}/edit`)}
+              onClick={() => navigate(`${PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_EDIT.path.replace(':surveyId', surveyId || '').replace(':analysisId', analysisId || '')}`)}
             >
               Edit Analysis
+            </Button>
+            <Button 
+              variant="outlined" 
+              color="error"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Delete Analysis
             </Button>
             <Button variant="outlined" onClick={handleBack}>
               Back to Survey
@@ -217,6 +259,7 @@ const ViewSurveyAnalysis: React.FC = () => {
             {currentAnalysis.analysis_questions?.map((analysisQuestion) => {
               const question = analysisQuestion.question;
               const selectedTopicIds = analysisQuestion.topics?.map(t => t.id as string) || [];
+              const selectedSegmentIds = analysisQuestion.report_segments?.map(s => s.id as string) || [];
               
               return (
                 <React.Fragment key={analysisQuestion.id}>
@@ -271,6 +314,29 @@ const ViewSurveyAnalysis: React.FC = () => {
                           )}
                         </Box>
                       </Box>
+
+                      <Box sx={{ minWidth: 200 }}>
+                        <Typography variant="caption" color="textSecondary">
+                          Report Segments
+                        </Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                          {analysisQuestion.report_segments && analysisQuestion.report_segments.length > 0 ? (
+                            analysisQuestion.report_segments.map((segment) => (
+                              <Chip 
+                                key={segment.id} 
+                                label={segment.name} 
+                                size="small" 
+                                variant="outlined"
+                                color="secondary"
+                              />
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="textSecondary">
+                              No segments assigned
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
                     </Box>
                   </Box>
                   <Divider component="li" />
@@ -280,6 +346,36 @@ const ViewSurveyAnalysis: React.FC = () => {
           </List>
         </Box>
       </Paper>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !isDeleting && setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete Analysis</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this analysis? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)} 
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteAnalysis} 
+            color="error" 
+            variant="contained"
+            disabled={isDeleting}
+            startIcon={isDeleting ? <CircularProgress size={20} /> : null}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

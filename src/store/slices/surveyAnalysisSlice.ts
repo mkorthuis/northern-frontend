@@ -26,6 +26,7 @@ export interface SurveyAnalysisQuestion {
   chart_type?: ChartType;
   question?: any; // Using any for simplicity, but should match QuestionGet from surveySlice
   topics?: SurveyQuestionTopic[];
+  report_segments?: SurveyReportSegment[];
 }
 
 export interface SurveyQuestionTopic {

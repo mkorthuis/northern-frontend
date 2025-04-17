@@ -3,7 +3,8 @@ import {
   Container, Typography, Paper, Box, Button,
   CircularProgress, TableContainer, Table,
   TableHead, TableRow, TableCell, TableBody,
-  Chip, Alert
+  Chip, Alert,
+  Divider
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -106,6 +107,15 @@ const SurveyList: React.FC = () => {
     }
   };
 
+  const handleSurveyDeleted = async () => {
+    // Clear the selected survey
+    setSelectedSurvey(null);
+    // Refresh the surveys list first
+    await getSurveys();
+    // Update URL to remove the survey ID
+    navigate(PATHS.PUBLIC.SURVEYS_V2.path, { replace: true });
+  };
+
   const renderSurveyTable = () => {
     if (surveys && surveys.length === 0) {
       return (
@@ -185,9 +195,6 @@ const SurveyList: React.FC = () => {
           }}
         >
           
-          <Typography variant="h6" gutterBottom>
-            Available Surveys
-          </Typography>
           <Button 
             variant="contained" 
             color="primary" 
@@ -198,6 +205,10 @@ const SurveyList: React.FC = () => {
           >
             Create New Survey
           </Button>
+          <Divider />
+          <Typography variant="h6" sx={{ mt: 2 }} gutterBottom>
+            Available Surveys
+          </Typography>
           {renderSurveyTable()}
         </Box>
         
@@ -208,7 +219,11 @@ const SurveyList: React.FC = () => {
               <CircularProgress />
             </Box>
           ) : (
-            <SurveyDetails survey={selectedSurvey} />
+            <SurveyDetails 
+              survey={selectedSurvey} 
+              loading={isLoadingSurvey}
+              onComplete={handleSurveyDeleted}
+            />
           )}
         </Box>
       </Box>

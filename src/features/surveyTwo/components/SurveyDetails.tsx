@@ -17,7 +17,12 @@ import {
   ListItemText,
   IconButton,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle
 } from '@mui/material';
 import { Survey } from '@/store/slices/surveySlice';
 import { getQuestionTypeById } from '@/constants/questionTypes';
@@ -27,7 +32,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import AddIcon from '@mui/icons-material/Add';
+import UploadIcon from '@mui/icons-material/Upload';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { surveyAnalysisApi } from '@/services/api/endpoints/surveyAnalysis';
+import SurveyResults from './SurveyResults';
+import SurveyResponseUploadDialog from './SurveyResponseUploadDialog';
+import useSurvey from '@/features/surveyTwo/hooks/useSurveyTwo';
 
 // Add interface for survey analysis data
 interface SurveyAnalysis {
@@ -42,10 +52,18 @@ interface SurveyAnalysis {
 interface SurveyDetailsProps {
   survey: Survey | null;
   loading?: boolean;
+  onComplete?: () => void;
 }
 
-const SurveyDetails: React.FC<SurveyDetailsProps> = ({ survey, loading = false }) => {
+const SurveyDetails: React.FC<SurveyDetailsProps> = ({ 
+  survey, 
+  loading = false,
+  onComplete
+}) => {
   const navigate = useNavigate();
+  const { removeSurvey } = useSurvey();
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   
   // Add state for survey analyses
   const [analyses, setAnalyses] = useState<SurveyAnalysis[]>([]);
@@ -94,6 +112,38 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({ survey, loading = false }
     }
   };
 
+  const handleUploadClick = () => {
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleUploadComplete = (data: { totalResponses: number; successCount: number; failedCount: number }) => {
+    setIsUploadDialogOpen(false);
+    // Optionally refresh the survey results here
+  };
+
+  const handleUploadCancel = () => {
+    setIsUploadDialogOpen(false);
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (survey?.id) {
+      await removeSurvey(survey.id);
+      setDeleteDialogOpen(false);
+      // Call onComplete to update parent state
+      if (onComplete) {
+        onComplete();
+      }
+    }
+  };
+
   if (!survey) {
     return (
       <Card sx={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -126,11 +176,29 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({ survey, loading = false }
             <Button
               variant="outlined"
               color="primary"
+              startIcon={<UploadIcon />}
+              onClick={handleUploadClick}
+              size="small"
+            >
+              Upload Responses
+            </Button>
+            <Button
+              variant="outlined"
+              color="primary"
               startIcon={<EditIcon />}
               onClick={handleEditSurvey}
               size="small"
             >
-              Edit Survey
+              Edit
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={handleDeleteClick}
+              size="small"
+            >
+              Delete
             </Button>
           </Box>
         </Box>
@@ -188,43 +256,52 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({ survey, loading = false }
           ) : (
             <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0e0', borderRadius: 1 }}>
               {analyses.map((analysis) => (
-                <ListItem
+                <Box
                   key={analysis.id}
-                  secondaryAction={
+                  onClick={() => handleViewAnalysis(analysis.id)}
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      cursor: 'pointer',
+                    },
+                  }}
+                >
+                  <ListItem
+                    divider
+                    sx={{ pr: 8 }} // Add right padding to prevent overlap with the icon
+                  >
+                    <ListItemText
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <AssessmentIcon fontSize="small" color="primary" />
+                          <Typography variant="subtitle2">{analysis.title}</Typography>
+                        </Box>
+                      }
+                      secondary={
+                        <Box>
+                          {analysis.description && (
+                            <Typography variant="body2" color="textSecondary">
+                              {analysis.description}
+                            </Typography>
+                          )}
+                        </Box>
+                      }
+                    />
                     <Tooltip title="View Analysis">
-                      <IconButton 
-                        edge="end" 
-                        aria-label="view" 
-                        onClick={() => handleViewAnalysis(analysis.id)}
+                      <IconButton
+                        edge="end"
+                        aria-label="view"
+                        sx={{ position: 'absolute', right: 8 }}
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent double navigation
+                          handleViewAnalysis(analysis.id);
+                        }}
                       >
                         <VisibilityIcon />
                       </IconButton>
                     </Tooltip>
-                  }
-                  divider
-                >
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AssessmentIcon fontSize="small" color="primary" />
-                        <Typography variant="subtitle2">{analysis.title}</Typography>
-                      </Box>
-                    }
-                    secondary={
-                      <Box>
-                        {analysis.description && (
-                          <Typography variant="body2" color="textSecondary">
-                            {analysis.description}
-                          </Typography>
-                        )}
-                        <Typography variant="caption" color="textSecondary">
-                          Created: {new Date(analysis.date_created).toLocaleDateString()} | 
-                          Questions: {analysis.analysis_questions?.length || 0}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                </ListItem>
+                  </ListItem>
+                </Box>
               ))}
             </List>
           )}
@@ -271,6 +348,42 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({ survey, loading = false }
               </Table>
           )}
         </Box>
+
+        {/* Survey Results Section */}
+        <Divider sx={{ mb: 3 }} />
+        <SurveyResults survey={survey} loading={loading} />
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialogOpen}
+          onClose={handleDeleteCancel}
+          aria-labelledby="delete-dialog-title"
+          aria-describedby="delete-dialog-description"
+        >
+          <DialogTitle id="delete-dialog-title">
+            Delete Survey
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText id="delete-dialog-description">
+              Are you sure you want to delete this survey? This action cannot be undone.
+              All associated responses and analyses will also be deleted.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel}>Cancel</Button>
+            <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Upload Dialog */}
+        <SurveyResponseUploadDialog
+          open={isUploadDialogOpen}
+          surveyId={survey.id!}
+          onComplete={handleUploadComplete}
+          onCancel={handleUploadCancel}
+        />
     </>
   );
 };

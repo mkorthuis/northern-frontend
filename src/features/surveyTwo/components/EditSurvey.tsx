@@ -19,6 +19,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import useSurveyTwo from '../hooks/useSurveyTwo';
 import { PATHS } from '@/routes/paths';
 import AddQuestionForm from './AddQuestionForm';
+import EditQuestionForm from './EditQuestionForm';
 import QuestionTopicsManager from './QuestionTopicsManager';
 import ReportSegmentManager from './ReportSegmentManager';
 import { Survey, SurveyQuestion } from '@/store/slices/surveySlice';
@@ -57,6 +58,7 @@ const EditSurvey: React.FC = () => {
   const [questions, setQuestions] = useState<ExtendedSurveyQuestion[]>([]);
   const [currentSurvey, setCurrentSurvey] = useState<Survey | null>(null);
   const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
 
   // Notification state
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -239,17 +241,8 @@ const EditSurvey: React.FC = () => {
       const resultAction = await addQuestionToSurvey(surveyId, apiQuestionData);
       
       if (resultAction.meta.requestStatus === 'fulfilled') {
-        // Log the response to help debug
-        console.log('API response:', resultAction.payload);
-        
-        // Add the new question to our local state directly
-        // Don't rely on the Redux state update which could cause duplication
-        const addedQuestion = resultAction.payload as ExtendedSurveyQuestion;
-        
-        // Only add if not already in the questions array (prevent duplicates)
-        if (!questions.some(q => q.id === addedQuestion.id)) {
-          setQuestions(prev => [...prev, addedQuestion]);
-        }
+        // After successfully adding the question, refresh the survey data
+        await fetchSurveyById({ surveyId, forceRefresh: true });
         
         setSnackbarMessage('Question added successfully!');
         setSnackbarSeverity('success');
@@ -281,14 +274,17 @@ const EditSurvey: React.FC = () => {
       const resultAction = await updateQuestion({ questionId, questionData });
       
       if (resultAction.meta.requestStatus === 'fulfilled') {
-        // Update the question in our local state
-        setQuestions(prev => 
-          prev.map(q => (q.id === questionId ? { ...q, ...resultAction.payload } : q))
-        );
+        // Refresh the survey data from the server
+        if (surveyId) {
+          await fetchSurveyById({ surveyId, forceRefresh: true });
+        }
         
         setSnackbarMessage('Question updated successfully!');
         setSnackbarSeverity('success');
         setSnackbarOpen(true);
+        
+        // Close the edit form
+        setEditingQuestionId(null);
       } else {
         setSnackbarMessage('Failed to update question');
         setSnackbarSeverity('error');
@@ -478,114 +474,120 @@ const EditSurvey: React.FC = () => {
 
   // Render the questions management step (step 2)
   const renderQuestionsStep = () => {
+    // Get the question being edited
+    const editingQuestion = questions.find(q => q.id === editingQuestionId);
+
     return (
       <Box sx={{ mt: 3 }}>
-        {questions.length > 0 ? (
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" gutterBottom>
-              Questions ({questions.length})
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              {questions.map((question, index) => {
-                // Extract question data, handling the nested structure
-                const { 
-                  title, 
-                  description, 
-                  external_question_id, 
-                  order_index, 
-                  options, 
-                  typeName 
-                } = getQuestionData(question);
-                
-                return (
-                  <Box key={question.id || index} sx={{ mb: 2, p: 2, borderBottom: index < questions.length - 1 ? '1px solid #eee' : 'none' }}>
-                    <Typography variant="subtitle1" fontWeight="bold">
-                      {index + 1}. {title}
-                    </Typography>
-                    
-                    {description && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        {description}
-                      </Typography>
-                    )}
-                    
-                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                      Type: {typeName} • 
-                      ID: {external_question_id || 'None'} • 
-                      Order: {order_index}
-                    </Typography>
-                    
-                    {options && options.length > 0 && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="caption" fontWeight="bold">
-                          Options:
-                        </Typography>
-                        <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
-                          {options.map((option, i) => (
-                            <li key={i}>
-                              <Typography variant="caption">
-                                {option.text} (Order: {option.order_index})
-                              </Typography>
-                            </li>
-                          ))}
-                        </ul>
-                      </Box>
-                    )}
-                    
-                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                      <Button 
-                        size="small" 
-                        variant="outlined"
-                        onClick={() => {
-                          // Implement question edit functionality here
-                          // You could set a state to track which question is being edited
-                          // and show a form similar to AddQuestionForm but pre-populated
-                          setSnackbarMessage('Edit functionality to be implemented');
-                          setSnackbarSeverity('info');
-                          setSnackbarOpen(true);
-                        }}
-                        disabled={isAnyLoading}
-                      >
-                        Edit
-                      </Button>
-                      
-                      <Button 
-                        size="small" 
-                        variant="outlined" 
-                        color="error"
-                        onClick={() => question.id && handleDeleteQuestion(question.id)}
-                        disabled={isAnyLoading || !question.id}
-                      >
-                        Delete
-                      </Button>
-                    </Box>
-                  </Box>
-                );
-              })}
-            </Paper>
-          </Box>
-        ) : (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            No questions added yet. Click the button below to add your first question.
-          </Alert>
-        )}
-
-        {showQuestionForm ? (
-          <AddQuestionForm 
-            onAddQuestion={handleAddQuestion} 
-            onCancel={() => setShowQuestionForm(false)}
-            isLoading={isAddQuestionLoading}
+        {editingQuestion ? (
+          <EditQuestionForm
+            question={editingQuestion as SurveyQuestion & { type_id?: number | undefined; type?: { id: number; name: string; } | undefined; }}
+            onUpdateQuestion={handleUpdateQuestion}
+            onCancel={() => setEditingQuestionId(null)}
+            isLoading={isUpdateQuestionLoading}
           />
         ) : (
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={() => setShowQuestionForm(true)}
-            sx={{ mb: 3 }}
-            disabled={isAnyLoading}
-          >
-            Add New Question
-          </Button>
+          <>
+            {questions.length > 0 ? (
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  Questions ({questions.length})
+                </Typography>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  {questions.map((question, index) => {
+                    const { 
+                      title, 
+                      description, 
+                      external_question_id, 
+                      order_index, 
+                      options, 
+                      typeName 
+                    } = getQuestionData(question);
+                    
+                    return (
+                      <Box key={question.id || index} sx={{ mb: 2, p: 2, borderBottom: index < questions.length - 1 ? '1px solid #eee' : 'none' }}>
+                        <Typography variant="subtitle1" fontWeight="bold">
+                          {index + 1}. {title}
+                        </Typography>
+                        
+                        {description && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            {description}
+                          </Typography>
+                        )}
+                        
+                        <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                          Type: {typeName} • 
+                          ID: {external_question_id || 'None'} • 
+                          Order: {order_index}
+                        </Typography>
+                        
+                        {options && options.length > 0 && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" fontWeight="bold">
+                              Options:
+                            </Typography>
+                            <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                              {options.map((option, i) => (
+                                <li key={i}>
+                                  <Typography variant="caption">
+                                    {option.text} (Order: {option.order_index})
+                                  </Typography>
+                                </li>
+                              ))}
+                            </ul>
+                          </Box>
+                        )}
+                        
+                        <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                          <Button 
+                            size="small" 
+                            variant="outlined"
+                            onClick={() => setEditingQuestionId(question.id || null)}
+                            disabled={isAnyLoading}
+                          >
+                            Edit
+                          </Button>
+                          
+                          <Button 
+                            size="small" 
+                            variant="outlined" 
+                            color="error"
+                            onClick={() => question.id && handleDeleteQuestion(question.id)}
+                            disabled={isAnyLoading || !question.id}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Paper>
+              </Box>
+            ) : (
+              <Alert severity="info" sx={{ mb: 3 }}>
+                No questions added yet. Click the button below to add your first question.
+              </Alert>
+            )}
+
+            {showQuestionForm ? (
+              <AddQuestionForm 
+                onAddQuestion={handleAddQuestion} 
+                onCancel={() => setShowQuestionForm(false)}
+                isLoading={isAddQuestionLoading}
+              />
+            ) : (
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={() => setShowQuestionForm(true)}
+                sx={{ mb: 3 }}
+                disabled={isAnyLoading}
+              >
+                Add New Question
+              </Button>
+            )}
+          </>
         )}
 
         <Divider sx={{ my: 3 }} />
