@@ -63,30 +63,31 @@ export default function Top() {
   };
 
   return (
-    <AppBar position="static">
-        <Container maxWidth={false} sx={{ px: { xs: '2', md: '50px' } }}>
-        <Toolbar disableGutters>
-          {showBackButton && (
-            <IconButton
-              color="inherit"
-              aria-label="back"
-              onClick={handleBackClick}
-              edge="start"
-              sx={{ m: '0px', paddingLeft: '0px' }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-          )}
-          <Typography
-            variant={isMediumOrLarger ? "h4" : "h5"}
-            noWrap
-          >
-            {currentTitle}
-          </Typography>
-          <Box sx={{ flexGrow: 1 }} />
-          <MobileMenu />
-        </Toolbar>
-      </Container>
-    </AppBar>
+    <></>
+    // <AppBar position="static">
+    //     <Container maxWidth={false} sx={{ px: { xs: '2', md: '50px' } }}>
+    //     <Toolbar disableGutters>
+    //       {showBackButton && (
+    //         <IconButton
+    //           color="inherit"
+    //           aria-label="back"
+    //           onClick={handleBackClick}
+    //           edge="start"
+    //           sx={{ m: '0px', paddingLeft: '0px' }}
+    //         >
+    //           <ArrowBackIcon />
+    //         </IconButton>
+    //       )}
+    //       <Typography
+    //         variant={isMediumOrLarger ? "h4" : "h5"}
+    //         noWrap
+    //       >
+    //         {currentTitle}
+    //       </Typography>
+    //       <Box sx={{ flexGrow: 1 }} />
+    //       <MobileMenu />
+    //     </Toolbar>
+    //   </Container>
+    // </AppBar>
   );
 }

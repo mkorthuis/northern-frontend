@@ -3,45 +3,56 @@ import {
   Container, Typography, Paper, Box, CircularProgress, 
   Breadcrumbs, Link as MuiLink, TextField, Button, 
   FormControlLabel, Switch, Grid, Snackbar, Alert,
-  FormControl, InputLabel, Select, MenuItem,
-  Divider
+  Divider, Collapse
 } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
-import { ArrowBack, Save } from '@mui/icons-material';
+import useSurvey from '../hooks/useSurveys';
+import { ArrowBack, Save, ContentPaste, Upload } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { Survey } from '@/store/slices/surveySlice';
+import { Survey, SurveyQuestion } from '@/store/slices/surveySlice';
 
-const defaultSection = {
-  title: '',
-  description: '',
-  order_index: 0,
-  questions: []
-};
+// Import components
+import JsonInputPanel from '../components/JsonInputPanel';
+import CsvUploadPanel from '../components/CsvUploadPanel';
+import QuestionSummary from '../components/QuestionSummary';
 
-const defaultQuestion = {
-  title: '',
-  description: '',
-  is_required: false,
-  order_index: 0,
-  type_id: 1, // Default to text type
-  options: []
-};
-
+/**
+ * Survey creation page component
+ */
 const SurveyCreate: React.FC = () => {
   const navigate = useNavigate();
   const { addSurvey, createSurveyLoading } = useSurvey();
   
+  // Basic survey info state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   
+  // UI state
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showJsonInput, setShowJsonInput] = useState(false);
+  const [showCsvUpload, setShowCsvUpload] = useState(false);
   
+  // Questions state
+  const [parsedQuestions, setParsedQuestions] = useState<SurveyQuestion[]>([]);
+  
+  // Handler for adding questions from JSON or CSV
+  const handleQuestionsAdded = (questions: SurveyQuestion[]) => {
+    setParsedQuestions(prevQuestions => [...prevQuestions, ...questions]);
+    setSuccess(true);
+    setTimeout(() => setSuccess(false), 3000);
+  };
+  
+  // Handler for clearing all questions
+  const handleClearQuestions = () => {
+    setParsedQuestions([]);
+  };
+  
+  // Form submission handler
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -58,9 +69,6 @@ const SurveyCreate: React.FC = () => {
     }
     
     try {
-      // Get current user ID (This would normally come from authentication)
-      // const createdBy = 'user123'; // Placeholder - would come from auth - No longer needed
-      
       const surveyData: Survey = {
         title,
         description: description || null,
@@ -68,7 +76,7 @@ const SurveyCreate: React.FC = () => {
         survey_start: startDate ? startDate.toISOString() : null,
         survey_end: endDate ? endDate.toISOString() : null,
         sections: [],
-        questions: []
+        questions: parsedQuestions
       };
       
       const result = await addSurvey(surveyData);
@@ -117,6 +125,7 @@ const SurveyCreate: React.FC = () => {
 
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
         <Grid container spacing={3}>
+          {/* Basic Information Section */}
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>
               Basic Information
@@ -199,6 +208,63 @@ const SurveyCreate: React.FC = () => {
             </Typography>
           </Grid>
           
+          {/* Questions Section */}
+          <Grid item xs={12}>
+            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+              Questions
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<ContentPaste />}
+                onClick={() => {
+                  setShowJsonInput(!showJsonInput);
+                  if (showCsvUpload) setShowCsvUpload(false);
+                }}
+              >
+                {showJsonInput ? 'Hide JSON Input' : 'Paste Question JSON'}
+              </Button>
+              
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<Upload />}
+                onClick={() => {
+                  setShowCsvUpload(!showCsvUpload);
+                  if (showJsonInput) setShowJsonInput(false);
+                }}
+              >
+                {showCsvUpload ? 'Hide CSV Upload' : 'Upload Questions CSV'}
+              </Button>
+              
+              {parsedQuestions.length > 0 && (
+                <Typography variant="body2" sx={{ ml: 'auto', alignSelf: 'center' }}>
+                  <strong>{parsedQuestions.length}</strong> questions added
+                </Typography>
+              )}
+            </Box>
+            
+            {/* JSON Input Panel */}
+            <Collapse in={showJsonInput}>
+              <JsonInputPanel onQuestionsAdded={handleQuestionsAdded} />
+            </Collapse>
+            
+            {/* CSV Upload Panel */}
+            <Collapse in={showCsvUpload}>
+              <CsvUploadPanel onQuestionsAdded={handleQuestionsAdded} />
+            </Collapse>
+            
+            {/* Questions Summary */}
+            <QuestionSummary 
+              questions={parsedQuestions} 
+              onClearQuestions={handleClearQuestions} 
+            />
+          </Grid>
+          
+          {/* Form Actions */}
           <Grid item xs={12}>
             <Box display="flex" justifyContent="space-between" mt={3}>
               <Button 
@@ -228,7 +294,7 @@ const SurveyCreate: React.FC = () => {
         </Grid>
       </Paper>
 
-      {/* Error and Success messages */}
+      {/* Notifications */}
       <Snackbar 
         open={!!error} 
         autoHideDuration={6000} 
@@ -247,7 +313,10 @@ const SurveyCreate: React.FC = () => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert onClose={() => setSuccess(false)} severity="success" sx={{ width: '100%' }}>
-          Survey created successfully! Redirecting to survey details...
+          {createSurveyLoading ? 'Creating survey...' : 
+            (parsedQuestions.length > 0 && !error ? 
+              `${parsedQuestions.length} questions ready to be added to survey` : 
+              'Survey created successfully! Redirecting to survey details...')}
         </Alert>
       </Snackbar>
     </Container>

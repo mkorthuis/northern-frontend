@@ -26,7 +26,7 @@ export const QUESTION_TYPES = [
 ];
 
 // Helper function to get question type by ID
-export const getQuestionTypeById = (typeId: number) => {
+export const getQuestionTypeById = (typeId?: number) => {
   return QUESTION_TYPES.find(type => type.id === typeId) || QUESTION_TYPES[0];
 };
 

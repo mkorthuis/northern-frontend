@@ -2,12 +2,14 @@ import { configureStore, ThunkAction, Action } from '@reduxjs/toolkit';
 import appReducer from '@/store/slices/appSlice';
 import authReducer from '@/features/auth/store/authSlice';
 import surveyReducer from '@/store/slices/surveySlice';
+import surveyAnalysisReducer from '@/store/slices/surveyAnalysisSlice';
 
 export const store = configureStore({
   reducer: {
     app: appReducer,
     auth: authReducer,
-    survey: surveyReducer
+    survey: surveyReducer,
+    surveyAnalysis: surveyAnalysisReducer
   },
   middleware: getDefaultMiddleware =>
       getDefaultMiddleware()

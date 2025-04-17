@@ -2,6 +2,14 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { RootState } from '@/store/store';
 import { surveyApi } from '@/services/api/endpoints/surveys';
 
+// Define loading state enum
+export enum LoadingState {
+  IDLE = 'idle',
+  LOADING = 'loading',
+  SUCCEEDED = 'succeeded',
+  FAILED = 'failed'
+}
+
 // Define types for the slice state
 export interface SurveyOption {
   text: string;
@@ -12,12 +20,20 @@ export interface SurveyOption {
   column_label?: string | null;
 }
 
+export interface SurveyType {
+  id?: number;
+  name?: string;
+  description?: string;
+}
+
 export interface SurveyQuestion {
   id?: string;
+  external_question_id?: string | null;
   title: string;
   description?: string | null;
   is_required?: boolean;
   order_index: number;
+  type: SurveyType;
   type_id: number;
   section_id?: string | null;
   validation_rules?: object | null;
@@ -42,8 +58,8 @@ export interface Survey {
   survey_start?: string | null;
   survey_end?: string | null;
   is_active?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  date_created?: string;
+  date_updated?: string;
   sections?: SurveySection[];
   questions?: SurveyQuestion[];
 }
@@ -71,33 +87,57 @@ export interface SurveyResponse {
   ip_address?: string | null;
   user_agent?: string | null;
   response_metadata?: object | null;
-  created_at?: string;
-  updated_at?: string;
+  date_created?: string;
+  date_updated?: string;
   completed_at?: string | null;
   is_complete?: boolean;
   answers?: SurveyResponseAnswer[];
+  started_at?: string;
+}
+
+// Define types for the paginated response
+export interface PaginatedSurveyResponses {
+  items: SurveyResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  pages: number;
+  has_previous: boolean;
+  has_next: boolean;
+}
+
+export interface SurveyResponseFilterOptions {
+  page?: number;
+  page_size?: number;
+  completed_only?: boolean;
+  started_after?: string | null;
+  started_before?: string | null;
+  respondent_id?: string | null;
+  search_term?: string | null;
 }
 
 export interface SurveyState {
   surveys: Survey[];
   currentSurvey: Survey | null;
   surveyResponses: SurveyResponse[];
+  paginatedResponses: PaginatedSurveyResponses | null;
   currentResponse: SurveyResponse | null;
   loading: boolean;
   loadingStates: {
-    surveys: boolean;
-    survey: boolean;
-    responses: boolean;
-    response: boolean;
-    createSurvey: boolean;
-    updateSurvey: boolean;
-    deleteSurvey: boolean;
-    createResponse: boolean;
-    updateResponse: boolean;
-    deleteResponse: boolean;
-    addQuestion: boolean;
-    updateQuestion: boolean;
-    deleteQuestion: boolean;
+    surveys: LoadingState;
+    survey: LoadingState;
+    responses: LoadingState;
+    paginatedResponses: LoadingState;
+    response: LoadingState;
+    createSurvey: LoadingState;
+    updateSurvey: LoadingState;
+    deleteSurvey: LoadingState;
+    createResponse: LoadingState;
+    updateResponse: LoadingState;
+    deleteResponse: LoadingState;
+    addQuestion: LoadingState;
+    updateQuestion: LoadingState;
+    deleteQuestion: LoadingState;
   };
   error: string | null;
 }
@@ -106,22 +146,24 @@ const initialState: SurveyState = {
   surveys: [],
   currentSurvey: null,
   surveyResponses: [],
+  paginatedResponses: null,
   currentResponse: null,
   loading: false,
   loadingStates: {
-    surveys: false,
-    survey: false,
-    responses: false,
-    response: false,
-    createSurvey: false,
-    updateSurvey: false,
-    deleteSurvey: false,
-    createResponse: false,
-    updateResponse: false,
-    deleteResponse: false,
-    addQuestion: false,
-    updateQuestion: false,
-    deleteQuestion: false,
+    surveys: LoadingState.IDLE,
+    survey: LoadingState.IDLE,
+    responses: LoadingState.IDLE,
+    paginatedResponses: LoadingState.IDLE,
+    response: LoadingState.IDLE,
+    createSurvey: LoadingState.IDLE,
+    updateSurvey: LoadingState.IDLE,
+    deleteSurvey: LoadingState.IDLE,
+    createResponse: LoadingState.IDLE,
+    updateResponse: LoadingState.IDLE,
+    deleteResponse: LoadingState.IDLE,
+    addQuestion: LoadingState.IDLE,
+    updateQuestion: LoadingState.IDLE,
+    deleteQuestion: LoadingState.IDLE,
   },
   error: null,
 };
@@ -296,6 +338,19 @@ export const deleteQuestion = createAsyncThunk(
   }
 );
 
+export const fetchPaginatedSurveyResponses = createAsyncThunk(
+  'survey/fetchPaginatedSurveyResponses',
+  async ({ surveyId, options = {}, forceRefresh = false }: 
+  { surveyId: string, options?: SurveyResponseFilterOptions, forceRefresh?: boolean }, 
+  { rejectWithValue }) => {
+    try {
+      return await surveyApi.getSurveyResponsesPaginated(surveyId, options, forceRefresh);
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to fetch paginated survey responses'));
+    }
+  }
+);
+
 // Create the survey slice
 export const surveySlice = createSlice({
   name: 'survey',
@@ -312,64 +367,68 @@ export const surveySlice = createSlice({
     clearSurveysError: (state) => {
       state.error = null;
     },
+    clearPaginatedResponses: (state) => {
+      state.paginatedResponses = null;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
       // Fetch Surveys
       .addCase(fetchSurveys.pending, (state) => {
-        state.loadingStates.surveys = true;
+        state.loadingStates.surveys = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchSurveys.fulfilled, (state, action) => {
         state.surveys = action.payload;
-        state.loadingStates.surveys = false;
+        state.loadingStates.surveys = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(fetchSurveys.rejected, (state, action) => {
-        state.loadingStates.surveys = false;
+        state.loadingStates.surveys = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch Survey by ID
       .addCase(fetchSurveyById.pending, (state) => {
-        state.loadingStates.survey = true;
+        state.loadingStates.survey = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchSurveyById.fulfilled, (state, action) => {
         state.currentSurvey = action.payload;
-        state.loadingStates.survey = false;
+        state.loadingStates.survey = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(fetchSurveyById.rejected, (state, action) => {
-        state.loadingStates.survey = false;
+        state.loadingStates.survey = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Create Survey
       .addCase(createSurvey.pending, (state) => {
-        state.loadingStates.createSurvey = true;
+        state.loadingStates.createSurvey = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(createSurvey.fulfilled, (state, action) => {
         state.surveys.push(action.payload);
         state.currentSurvey = action.payload;
-        state.loadingStates.createSurvey = false;
+        state.loadingStates.createSurvey = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(createSurvey.rejected, (state, action) => {
-        state.loadingStates.createSurvey = false;
+        state.loadingStates.createSurvey = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Update Survey
       .addCase(updateSurvey.pending, (state) => {
-        state.loadingStates.updateSurvey = true;
+        state.loadingStates.updateSurvey = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
@@ -378,18 +437,18 @@ export const surveySlice = createSlice({
           survey.id === action.payload.id ? action.payload : survey
         );
         state.currentSurvey = action.payload;
-        state.loadingStates.updateSurvey = false;
+        state.loadingStates.updateSurvey = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(updateSurvey.rejected, (state, action) => {
-        state.loadingStates.updateSurvey = false;
+        state.loadingStates.updateSurvey = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Delete Survey
       .addCase(deleteSurvey.pending, (state) => {
-        state.loadingStates.deleteSurvey = true;
+        state.loadingStates.deleteSurvey = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
@@ -398,70 +457,70 @@ export const surveySlice = createSlice({
         if (state.currentSurvey && state.currentSurvey.id === action.payload) {
           state.currentSurvey = null;
         }
-        state.loadingStates.deleteSurvey = false;
+        state.loadingStates.deleteSurvey = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(deleteSurvey.rejected, (state, action) => {
-        state.loadingStates.deleteSurvey = false;
+        state.loadingStates.deleteSurvey = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch Survey Responses
       .addCase(fetchSurveyResponses.pending, (state) => {
-        state.loadingStates.responses = true;
+        state.loadingStates.responses = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchSurveyResponses.fulfilled, (state, action) => {
         state.surveyResponses = action.payload;
-        state.loadingStates.responses = false;
+        state.loadingStates.responses = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(fetchSurveyResponses.rejected, (state, action) => {
-        state.loadingStates.responses = false;
+        state.loadingStates.responses = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Fetch Survey Response
       .addCase(fetchSurveyResponse.pending, (state) => {
-        state.loadingStates.response = true;
+        state.loadingStates.response = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(fetchSurveyResponse.fulfilled, (state, action) => {
         state.currentResponse = action.payload;
-        state.loadingStates.response = false;
+        state.loadingStates.response = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(fetchSurveyResponse.rejected, (state, action) => {
-        state.loadingStates.response = false;
+        state.loadingStates.response = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Create Survey Response
       .addCase(createSurveyResponse.pending, (state) => {
-        state.loadingStates.createResponse = true;
+        state.loadingStates.createResponse = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(createSurveyResponse.fulfilled, (state, action) => {
         state.surveyResponses.push(action.payload);
         state.currentResponse = action.payload;
-        state.loadingStates.createResponse = false;
+        state.loadingStates.createResponse = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(createSurveyResponse.rejected, (state, action) => {
-        state.loadingStates.createResponse = false;
+        state.loadingStates.createResponse = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Update Survey Response
       .addCase(updateSurveyResponse.pending, (state) => {
-        state.loadingStates.updateResponse = true;
+        state.loadingStates.updateResponse = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
@@ -470,18 +529,18 @@ export const surveySlice = createSlice({
           response.id === action.payload.id ? action.payload : response
         );
         state.currentResponse = action.payload;
-        state.loadingStates.updateResponse = false;
+        state.loadingStates.updateResponse = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(updateSurveyResponse.rejected, (state, action) => {
-        state.loadingStates.updateResponse = false;
+        state.loadingStates.updateResponse = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Delete Survey Response
       .addCase(deleteSurveyResponse.pending, (state) => {
-        state.loadingStates.deleteResponse = true;
+        state.loadingStates.deleteResponse = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
@@ -492,23 +551,23 @@ export const surveySlice = createSlice({
         if (state.currentResponse && state.currentResponse.id === action.payload) {
           state.currentResponse = null;
         }
-        state.loadingStates.deleteResponse = false;
+        state.loadingStates.deleteResponse = LoadingState.SUCCEEDED;
         state.loading = false;
       })
       .addCase(deleteSurveyResponse.rejected, (state, action) => {
-        state.loadingStates.deleteResponse = false;
+        state.loadingStates.deleteResponse = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       })
 
       // Add Question
       .addCase(addQuestion.pending, (state) => {
-        state.loadingStates.addQuestion = true;
+        state.loadingStates.addQuestion = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(addQuestion.fulfilled, (state, action) => {
-        state.loadingStates.addQuestion = false;
+        state.loadingStates.addQuestion = LoadingState.SUCCEEDED;
         state.loading = false;
         
         // If we have the current survey loaded and it matches
@@ -523,7 +582,7 @@ export const surveySlice = createSlice({
         }
       })
       .addCase(addQuestion.rejected, (state, action) => {
-        state.loadingStates.addQuestion = false;
+        state.loadingStates.addQuestion = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       });
@@ -531,12 +590,12 @@ export const surveySlice = createSlice({
     // Update Question
     builder
       .addCase(updateQuestion.pending, (state) => {
-        state.loadingStates.updateQuestion = true;
+        state.loadingStates.updateQuestion = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(updateQuestion.fulfilled, (state, action) => {
-        state.loadingStates.updateQuestion = false;
+        state.loadingStates.updateQuestion = LoadingState.SUCCEEDED;
         state.loading = false;
         
         // If we have the current survey loaded
@@ -549,7 +608,7 @@ export const surveySlice = createSlice({
         }
       })
       .addCase(updateQuestion.rejected, (state, action) => {
-        state.loadingStates.updateQuestion = false;
+        state.loadingStates.updateQuestion = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       });
@@ -557,12 +616,12 @@ export const surveySlice = createSlice({
     // Delete Question
     builder
       .addCase(deleteQuestion.pending, (state) => {
-        state.loadingStates.deleteQuestion = true;
+        state.loadingStates.deleteQuestion = LoadingState.LOADING;
         state.loading = true;
         state.error = null;
       })
       .addCase(deleteQuestion.fulfilled, (state, action) => {
-        state.loadingStates.deleteQuestion = false;
+        state.loadingStates.deleteQuestion = LoadingState.SUCCEEDED;
         state.loading = false;
         
         // If we have the current survey loaded and it matches
@@ -574,7 +633,25 @@ export const surveySlice = createSlice({
         }
       })
       .addCase(deleteQuestion.rejected, (state, action) => {
-        state.loadingStates.deleteQuestion = false;
+        state.loadingStates.deleteQuestion = LoadingState.FAILED;
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+
+    // Fetch Paginated Survey Responses
+    builder
+      .addCase(fetchPaginatedSurveyResponses.pending, (state) => {
+        state.loadingStates.paginatedResponses = LoadingState.LOADING;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchPaginatedSurveyResponses.fulfilled, (state, action) => {
+        state.paginatedResponses = action.payload;
+        state.loadingStates.paginatedResponses = LoadingState.SUCCEEDED;
+        state.loading = false;
+      })
+      .addCase(fetchPaginatedSurveyResponses.rejected, (state, action) => {
+        state.loadingStates.paginatedResponses = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
       });
@@ -585,7 +662,8 @@ export const surveySlice = createSlice({
 export const { 
   clearSurveyData, 
   clearResponseData, 
-  clearSurveysError 
+  clearSurveysError,
+  clearPaginatedResponses 
 } = surveySlice.actions;
 
 // Export selectors
@@ -610,6 +688,27 @@ export const selectDeleteResponseLoading = (state: RootState) => state.survey.lo
 export const selectAddQuestionLoading = (state: RootState) => state.survey.loadingStates.addQuestion;
 export const selectUpdateQuestionLoading = (state: RootState) => state.survey.loadingStates.updateQuestion;
 export const selectDeleteQuestionLoading = (state: RootState) => state.survey.loadingStates.deleteQuestion;
+
+// New selectors for paginated responses
+export const selectPaginatedResponses = (state: RootState) => state.survey.paginatedResponses;
+export const selectPaginatedResponsesLoading = (state: RootState) => state.survey.loadingStates.paginatedResponses;
+
+// Helper selectors for checking loading states
+export const selectIsSurveysLoading = (state: RootState) => state.survey.loadingStates.surveys === LoadingState.LOADING;
+export const selectIsSurveysFailed = (state: RootState) => state.survey.loadingStates.surveys === LoadingState.FAILED;
+export const selectIsSurveysSucceeded = (state: RootState) => state.survey.loadingStates.surveys === LoadingState.SUCCEEDED;
+
+export const selectIsSurveyLoading = (state: RootState) => state.survey.loadingStates.survey === LoadingState.LOADING;
+export const selectIsSurveyFailed = (state: RootState) => state.survey.loadingStates.survey === LoadingState.FAILED;
+export const selectIsSurveySucceeded = (state: RootState) => state.survey.loadingStates.survey === LoadingState.SUCCEEDED;
+
+export const selectIsResponsesLoading = (state: RootState) => state.survey.loadingStates.responses === LoadingState.LOADING;
+export const selectIsResponsesFailed = (state: RootState) => state.survey.loadingStates.responses === LoadingState.FAILED;
+export const selectIsResponsesSucceeded = (state: RootState) => state.survey.loadingStates.responses === LoadingState.SUCCEEDED;
+
+export const selectIsPaginatedResponsesLoading = (state: RootState) => state.survey.loadingStates.paginatedResponses === LoadingState.LOADING;
+export const selectIsPaginatedResponsesFailed = (state: RootState) => state.survey.loadingStates.paginatedResponses === LoadingState.FAILED;
+export const selectIsPaginatedResponsesSucceeded = (state: RootState) => state.survey.loadingStates.paginatedResponses === LoadingState.SUCCEEDED;
 
 // Export reducer
 export default surveySlice.reducer;

@@ -6,11 +6,13 @@ import {
   DialogActions, DialogContent, DialogContentText, DialogTitle
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
-  Visibility as VisibilityIcon, Assessment as AssessmentIcon } from '@mui/icons-material';
+  Visibility as VisibilityIcon, Assessment as AssessmentIcon,
+  Analytics as AnalyticsIcon } from '@mui/icons-material';
 import { Link, useNavigate } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
-import useSurvey from '../hooks/useSurvey';
 import { format } from 'date-fns';
+import useSurvey from '../hooks/useSurveys';
+import { Survey } from '@/store/slices/surveySlice';
 
 const SurveysList: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +39,10 @@ const SurveysList: React.FC = () => {
     navigate(PATHS.PUBLIC.SURVEY_DETAIL.path.replace(':id', surveyId));
   };
 
+  const handleViewAnalysis = (surveyId: string) => {
+    navigate(PATHS.PUBLIC.SURVEY_ANALYSIS.path.replace(':id', surveyId));
+  };
+
   const handleDeleteDialogOpen = (surveyId: string) => {
     setSurveyToDelete(surveyId);
     setDeleteDialogOpen(true);
@@ -51,6 +57,8 @@ const SurveysList: React.FC = () => {
     if (surveyToDelete) {
       await removeSurvey(surveyToDelete);
       handleDeleteDialogClose();
+      // Refresh surveys after deletion
+      getSurveys(false, true);
     }
   };
 
@@ -87,7 +95,7 @@ const SurveysList: React.FC = () => {
         </Button>
       </Box>
       
-      {surveys.length === 0 ? (
+      {surveys && surveys.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="body1" color="textSecondary">
             No surveys found. Create your first survey to get started.
@@ -106,7 +114,7 @@ const SurveysList: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {surveys.map((survey) => (
+              {surveys && surveys.map((survey: Survey) => (
                 <TableRow key={survey.id}>
                   <TableCell>{survey.title}</TableCell>
                   <TableCell>
@@ -142,6 +150,14 @@ const SurveysList: React.FC = () => {
                           onClick={() => handleViewResponses(survey.id!)}
                         >
                           <AssessmentIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Survey Analysis">
+                        <IconButton 
+                          color="secondary" 
+                          onClick={() => handleViewAnalysis(survey.id!)}
+                        >
+                          <AnalyticsIcon />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Survey">
