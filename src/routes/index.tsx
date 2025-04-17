@@ -6,13 +6,6 @@ import { PrivateRoute } from "./PrivateRoute";
 import Home from "@/pages/Home";
 import Admin from "@/pages/Admin";
 
-// Import Survey components
-import SurveysList from "@/features/survey/pages/SurveysList";
-import SurveyDetail from "@/features/survey/pages/SurveyDetail";
-import SurveyResponses from "@/features/survey/pages/SurveyResponses";
-import SurveyCreate from "@/features/survey/pages/SurveyCreate";
-import SurveyAnalysis from "@/features/survey/pages/SurveyAnalysis";
-import AnalysisDetails from "@/features/survey/pages/AnalysisDetails";
 
 import SurveyList from "@/features/surveyTwo/pages/SurveyList";
 import NotFound from "@components/NotFound/NotFound";
@@ -35,13 +28,6 @@ const router = createBrowserRouter(
     {
       element: <PublicLayout />,
       children: [
-        // Survey routes
-        { path: PATHS.PUBLIC.SURVEYS.path, element: <SurveysList /> },
-        { path: PATHS.PUBLIC.SURVEY_DETAIL.path, element: <SurveyDetail /> },
-        { path: PATHS.PUBLIC.SURVEY_RESPONSES.path, element: <SurveyResponses /> },
-        { path: PATHS.PUBLIC.SURVEY_CREATE.path, element: <SurveyCreate /> },
-        { path: PATHS.PUBLIC.SURVEY_ANALYSIS.path, element: <SurveyAnalysis /> },
-        { path: PATHS.PUBLIC.ANALYSIS_DETAILS.path, element: <AnalysisDetails /> },
 
         // Survey V2 routes
         { path: PATHS.PUBLIC.SURVEYS_V2.path, element: <SurveyList /> },
