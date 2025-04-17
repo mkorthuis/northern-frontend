@@ -37,10 +37,16 @@ import {
   fetchSurveyQuestionTopics,
   fetchSurveyReportSegments,
   fetchSurveyAnalysisById,
+  fetchSurveyAnalysisFilters,
+  createSurveyAnalysisFilter,
+  updateSurveyAnalysisFilter,
+  deleteSurveyAnalysisFilter,
   ChartType,
   SurveyQuestionTopic,
   SurveyReportSegment,
-  SurveyAnalysisFilter
+  SurveyAnalysisFilter,
+  FilterCriterion,
+  SurveyAnalysisQuestion
 } from '@/store/slices/surveyAnalysisSlice';
 import { fetchSurveyById } from '@/store/slices/surveySlice';
 import { getQuestionTypeById } from '@/constants/questionTypes';
@@ -49,7 +55,18 @@ import { getQuestionTypeById } from '@/constants/questionTypes';
 interface AnalysisFormData {
   title: string;
   description: string;
-  filterQuestionIds: string[];
+  analysisQuestionId: string;
+}
+
+/**
+ * Interface for managing multiple filter criteria values.
+ * This replaces the previous single filter value approach,
+ * allowing users to add, edit, and remove multiple filter
+ * values for more flexible filtering.
+ */
+interface FilterCriteriaState {
+  values: string[];
+  newValue: string;
 }
 
 interface QuestionSettings {
@@ -88,6 +105,27 @@ interface QuestionSettingsProps {
   onTopicChange: (questionId: string, topicIds: string[]) => void;
   onSegmentChange: (questionId: string, segmentIds: string[]) => void;
 }
+
+// Get the first criterion value from a filter or empty string if not available
+const getFilterCriterionValue = (filter?: SurveyAnalysisFilter): string => {
+  if (!filter || !filter.criteria || filter.criteria.length === 0) {
+    return '';
+  }
+  return filter.criteria[0].value || '';
+};
+
+// Check if a filter has a criterion matching a specific value
+const hasFilterCriterionMatchingValue = (filter: SurveyAnalysisFilter, value: string): boolean => {
+  return filter.criteria && filter.criteria.some(criterion => criterion.value === value);
+};
+
+// Utility function to find an analysis question with a specific base question ID
+const findAnalysisQuestionByBaseQuestionId = (
+  analysisQuestions: SurveyAnalysisQuestion[] | undefined, 
+  baseQuestionId: string
+): SurveyAnalysisQuestion | undefined => {
+  return analysisQuestions?.find(aq => aq.question.id === baseQuestionId);
+};
 
 const QuestionSettingsPanel: React.FC<QuestionSettingsProps> = ({
   questionId,
@@ -241,6 +279,10 @@ const EditSurveyAnalysis: React.FC = () => {
   const chartTypesLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.chartTypes);
   const updateAnalysisLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.updateAnalysis);
   const updateQuestionLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.updateQuestion);
+  const filtersLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.filters);
+  const createFilterLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.createFilter);
+  const updateFilterLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.updateFilter);
+  const deleteFilterLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.deleteFilter);
   const topicsLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.topics);
   const segmentsLoading = useAppSelector((state) => state.surveyAnalysis.loadingStates.segments);
   
@@ -248,8 +290,14 @@ const EditSurveyAnalysis: React.FC = () => {
   const [formData, setFormData] = useState<AnalysisFormData>({
     title: '',
     description: '',
-    filterQuestionIds: []
+    analysisQuestionId: ''
   });
+  // New state for filter criteria
+  const [filterCriteria, setFilterCriteria] = useState<FilterCriteriaState>({
+    values: [],
+    newValue: ''
+  });
+  
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [questionSettings, setQuestionSettings] = useState<Map<string, QuestionSettings>>(new Map());
   const [formErrors, setFormErrors] = useState<FormErrors>({
@@ -265,8 +313,8 @@ const EditSurveyAnalysis: React.FC = () => {
 
   // Derived state
   const isSurveyLoading = surveyLoadingStates.survey === 'loading';
-  const isSubmitting = updateAnalysisLoading || updateQuestionLoading;
-  const isLoading = isSurveyLoading || chartTypesLoading || isSubmitting;
+  const isSubmitting = updateAnalysisLoading || updateQuestionLoading || createFilterLoading || updateFilterLoading || deleteFilterLoading;
+  const isLoading = isSurveyLoading || chartTypesLoading || isSubmitting || filtersLoading;
 
   // Get demographic questions
   const demographicQuestions = React.useMemo(() => {
@@ -289,12 +337,20 @@ const EditSurveyAnalysis: React.FC = () => {
     ]);
     
     // Return the full question objects for each demographic question
-    return currentSurvey.questions.filter(question => 
-      allDemographicIds.has(question.id as string) || 
-      (currentAnalysis?.filters && 
-        currentAnalysis.filters.some(filter => filter.value === question.id))
-    );
+    return currentSurvey.questions.filter(question => {
+      const questionId = question.id as string;
+      return allDemographicIds.has(questionId) || 
+        (currentAnalysis?.filters && 
+          currentAnalysis.filters.some(filter => hasFilterCriterionMatchingValue(filter, questionId))
+        );
+    });
   }, [currentSurvey, currentAnalysis, questionSettings]);
+
+  // Get analysis questions that can be used for filtering (demographic questions)
+  const analysisQuestionsForFiltering = React.useMemo(() => {
+    if (!currentAnalysis?.analysis_questions) return [];
+    return currentAnalysis.analysis_questions.filter(aq => aq.is_demographic);
+  }, [currentAnalysis]);
 
   // Effects
   useEffect(() => {
@@ -314,6 +370,13 @@ const EditSurveyAnalysis: React.FC = () => {
   }, [analysisId, dispatch]);
 
   useEffect(() => {
+    if (analysisId) {
+      // Fetch filters for this analysis
+      dispatch(fetchSurveyAnalysisFilters({ analysisId, forceRefresh: true }));
+    }
+  }, [analysisId, dispatch]);
+
+  useEffect(() => {
     // Fetch chart types
     dispatch(fetchChartTypes({ forceRefresh: true }));
   }, [dispatch]);
@@ -321,14 +384,30 @@ const EditSurveyAnalysis: React.FC = () => {
   useEffect(() => {
     if (!currentAnalysis) return;
 
-    // Initialize form data from current analysis
+    // Find the filter that contains question ID info (if any)
+    const questionFilter = currentAnalysis.filters?.find(filter => 
+      filter.criteria && filter.criteria.length > 0
+    );
+
+    // Initialize form data and selections
     setFormData({
       title: currentAnalysis.title,
       description: currentAnalysis.description || '',
-      filterQuestionIds: currentAnalysis.filters 
-        ? currentAnalysis.filters.map(filter => filter.value)
-        : []
+      analysisQuestionId: questionFilter?.survey_analysis_question_id || ''
     });
+
+    // Initialize filter criteria from existing filter
+    if (questionFilter?.criteria && questionFilter.criteria.length > 0) {
+      setFilterCriteria({
+        values: questionFilter.criteria.map(criterion => criterion.value || ''),
+        newValue: ''
+      });
+    } else {
+      setFilterCriteria({
+        values: [],
+        newValue: ''
+      });
+    }
 
     // Initialize selected questions and their settings
     const selectedIds: string[] = [];
@@ -380,11 +459,39 @@ const EditSurveyAnalysis: React.FC = () => {
     }
   };
 
-  const handleFilterQuestionChange = (e: SelectChangeEvent<string[]>) => {
-    const value = e.target.value;
-    setFormData(prev => ({ 
-      ...prev, 
-      filterQuestionIds: typeof value === 'string' ? [value] : value 
+  const handleFilterQuestionChange = (e: SelectChangeEvent<string>) => {
+    // When changing the question, reset the filter criteria
+    setFormData(prev => ({ ...prev, analysisQuestionId: e.target.value }));
+    setFilterCriteria({
+      values: [],
+      newValue: ''
+    });
+  };
+
+  const handleFilterValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterCriteria(prev => ({
+      ...prev,
+      newValue: e.target.value
+    }));
+  };
+
+  const handleAddFilterValue = () => {
+    // Don't add empty values or duplicates
+    if (!filterCriteria.newValue.trim() || 
+        filterCriteria.values.includes(filterCriteria.newValue.trim())) {
+      return;
+    }
+    
+    setFilterCriteria(prev => ({
+      values: [...prev.values, prev.newValue.trim()],
+      newValue: '' // Clear the input field after adding
+    }));
+  };
+
+  const handleRemoveFilterValue = (valueToRemove: string) => {
+    setFilterCriteria(prev => ({
+      ...prev,
+      values: prev.values.filter(value => value !== valueToRemove)
     }));
   };
 
@@ -509,13 +616,11 @@ const EditSurveyAnalysis: React.FC = () => {
         analysisId,
         analysisData: {
           title: formData.title,
-          description: formData.description || null,
-          filters: formData.filterQuestionIds.length > 0 
-            ? formData.filterQuestionIds.map(id => ({ value: id }))
-            : null
+          description: formData.description || null
         }
-      }));
+      })).unwrap();
 
+      // Handle questions first so we have valid analysis question IDs for filters
       // Get current question IDs
       const currentQuestionIds = new Set(
         currentAnalysis.analysis_questions?.map(aq => aq.question.id as string) || []
@@ -548,7 +653,7 @@ const EditSurveyAnalysis: React.FC = () => {
           await dispatch(updateSurveyAnalysisQuestion({
             questionId: existingQuestion.id as string,
             questionData: updateData
-          }));
+          })).unwrap();
         } else {
           // Add new question
           await dispatch(createSurveyAnalysisQuestion({
@@ -559,7 +664,7 @@ const EditSurveyAnalysis: React.FC = () => {
             is_demographic: settings.isDemographic,
             topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
             report_segment_ids: settings.segmentIds.length > 0 ? settings.segmentIds : null
-          }));
+          })).unwrap();
         }
       }
 
@@ -570,9 +675,63 @@ const EditSurveyAnalysis: React.FC = () => {
             aq => aq.question.id === existingQuestionId
           );
           if (questionToRemove?.id) {
-            await dispatch(deleteSurveyAnalysisQuestion(questionToRemove.id));
+            await dispatch(deleteSurveyAnalysisQuestion(questionToRemove.id)).unwrap();
           }
         }
+      }
+
+      // Refresh analysis to get updated analysis questions
+      const updatedAnalysisResponse = await dispatch(fetchSurveyAnalysisById({ 
+        analysisId, 
+        forceRefresh: true 
+      })).unwrap();
+      
+      // Now handle filters with the updated analysis
+      const hasFilterData = formData.analysisQuestionId && filterCriteria.values.length > 0;
+      const existingFilters: SurveyAnalysisFilter[] = updatedAnalysisResponse.filters || [];
+      
+      if (hasFilterData) {
+        // We have filter data to save
+        if (existingFilters.length > 0) {
+          // Update existing filter(s)
+          for (const filter of existingFilters) {
+            // If this is the filter for our selected analysis question, update it
+            if (filter.survey_analysis_question_id === formData.analysisQuestionId) {
+              await dispatch(updateSurveyAnalysisFilter({
+                filterId: filter.id,
+                filterData: {
+                  criteria: filterCriteria.values.map(value => ({ value }))
+                }
+              })).unwrap();
+            } else {
+              // If this is a different filter, delete it (we only support one filter at a time in the UI)
+              await dispatch(deleteSurveyAnalysisFilter(filter.id)).unwrap();
+            }
+          }
+          
+          // If we didn't find a filter for this analysis question, create a new one
+          if (!existingFilters.some(f => f.survey_analysis_question_id === formData.analysisQuestionId)) {
+            await dispatch(createSurveyAnalysisFilter({
+              survey_analysis_id: analysisId,
+              survey_analysis_question_id: formData.analysisQuestionId,
+              criteria: filterCriteria.values.map(value => ({ value }))
+            })).unwrap();
+          }
+        } else {
+          // No existing filters, create a new one
+          await dispatch(createSurveyAnalysisFilter({
+            survey_analysis_id: analysisId,
+            survey_analysis_question_id: formData.analysisQuestionId,
+            criteria: filterCriteria.values.map(value => ({ value }))
+          })).unwrap();
+        }
+      } else if (existingFilters.length > 0) {
+        // No filter data but we have existing filters, delete them all
+        await Promise.all(
+          existingFilters.map(filter => 
+            dispatch(deleteSurveyAnalysisFilter(filter.id)).unwrap()
+          )
+        );
       }
 
       setSuccess(true);
@@ -687,40 +846,77 @@ const EditSurveyAnalysis: React.FC = () => {
             />
 
             <FormControl fullWidth margin="normal">
-              <InputLabel id="filter-question-label">Filter Questions (Optional)</InputLabel>
+              <InputLabel id="filter-question-label">Filter Question (Optional)</InputLabel>
               <Select
                 labelId="filter-question-label"
                 id="filter-question-select"
-                multiple
-                value={formData.filterQuestionIds}
+                value={formData.analysisQuestionId}
                 onChange={handleFilterQuestionChange}
-                input={<OutlinedInput label="Filter Questions (Optional)" />}
-                disabled={isSubmitting || demographicQuestions.length === 0}
-                renderValue={(selected) => (
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {selected.map((questionId) => {
-                      const question = demographicQuestions.find(q => q.id === questionId);
-                      return question ? (
-                        <Chip key={questionId} label={question.title} size="small" />
-                      ) : null;
-                    })}
-                  </Box>
-                )}
+                label="Filter Question (Optional)"
+                disabled={isSubmitting || analysisQuestionsForFiltering.length === 0}
               >
-                {demographicQuestions.length === 0 ? (
-                  <MenuItem disabled>No demographic questions available</MenuItem>
-                ) : (
-                  demographicQuestions.map((question) => (
-                    <MenuItem key={question.id} value={question.id as string}>
-                      {question.title} {question.external_question_id ? `(ID: ${question.external_question_id})` : ''}
-                    </MenuItem>
-                  ))
-                )}
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {analysisQuestionsForFiltering.map((analysisQuestion) => (
+                  <MenuItem key={analysisQuestion.id} value={analysisQuestion.id as string}>
+                    {analysisQuestion.question.title}
+                  </MenuItem>
+                ))}
               </Select>
-              <FormHelperText>
-                Select demographic questions to use as filters for this analysis
-              </FormHelperText>
+              <FormHelperText>Select a demographic question to filter analysis results</FormHelperText>
             </FormControl>
+            
+            {formData.analysisQuestionId && (
+              <Box sx={{ mt: 2, mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Filter Criteria Values
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
+                  <TextField
+                    name="newFilterValue"
+                    label="Add Filter Value"
+                    value={filterCriteria.newValue}
+                    onChange={handleFilterValueChange}
+                    sx={{ flexGrow: 1, mr: 1 }}
+                    disabled={isSubmitting}
+                  />
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleAddFilterValue}
+                    disabled={isSubmitting || !filterCriteria.newValue.trim()}
+                    sx={{ mt: 1 }}
+                  >
+                    Add
+                  </Button>
+                </Box>
+                
+                {filterCriteria.values.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                    {filterCriteria.values.map((value, index) => (
+                      <Chip
+                        key={index}
+                        label={value}
+                        onDelete={() => handleRemoveFilterValue(value)}
+                        disabled={isSubmitting}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                    No filter values added yet. Add at least one value to enable filtering.
+                  </Typography>
+                )}
+                
+                <FormHelperText>
+                  Add one or more values to filter on. Records matching any of these values will be included.
+                </FormHelperText>
+              </Box>
+            )}
           </Box>
           
           {/* Questions Section */}

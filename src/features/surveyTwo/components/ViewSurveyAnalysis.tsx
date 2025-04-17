@@ -173,6 +173,11 @@ const ViewSurveyAnalysis: React.FC = () => {
     }
   };
 
+  // Find the analysis question by ID
+  const findAnalysisQuestionById = (questionId: string) => {
+    return currentAnalysis?.analysis_questions?.find(q => q.id === questionId);
+  };
+
   // Render loading state
   if (isLoading) {
     return (
@@ -255,6 +260,49 @@ const ViewSurveyAnalysis: React.FC = () => {
             <Typography variant="body1" color="textSecondary">
               {currentAnalysis.description}
             </Typography>
+          </Box>
+        )}
+
+        {/* Filter Section */}
+        {currentAnalysis.filters && currentAnalysis.filters.length > 0 && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h6" gutterBottom>
+              Analysis Filters
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            
+            {currentAnalysis.filters.map((filter) => {
+              const filterQuestion = findAnalysisQuestionById(filter.survey_analysis_question_id);
+              
+              return (
+                <Box key={filter.id} sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Filter Question: {filterQuestion?.question.title || 'Unknown Question'}
+                  </Typography>
+                  
+                  <Typography variant="subtitle2" sx={{ mt: 1, mb: 0.5 }}>
+                    Filter Values:
+                  </Typography>
+                  
+                  {filter.criteria && filter.criteria.length > 0 ? (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {filter.criteria.map((criterion, index) => (
+                        <Chip 
+                          key={index}
+                          label={criterion.value}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      ))}
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      No filter values specified
+                    </Typography>
+                  )}
+                </Box>
+              );
+            })}
           </Box>
         )}
 

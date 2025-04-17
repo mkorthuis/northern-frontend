@@ -8,9 +8,16 @@ export interface ChartType {
   name: string;
 }
 
+// Update the filter interface to match our API
+export interface FilterCriterion {
+  value: string;
+}
+
 export interface SurveyAnalysisFilter {
   id: string;
-  value: string;
+  survey_analysis_id: string;
+  survey_analysis_question_id: string;
+  criteria: FilterCriterion[];
 }
 
 export interface SurveyAnalysis {
@@ -71,6 +78,10 @@ export interface SurveyAnalysisState {
     createSegment: boolean;
     updateSegment: boolean;
     deleteSegment: boolean;
+    filters: boolean;
+    createFilter: boolean;
+    updateFilter: boolean;
+    deleteFilter: boolean;
   };
   error: string | null;
 }
@@ -100,6 +111,10 @@ const initialState: SurveyAnalysisState = {
     createSegment: false,
     updateSegment: false,
     deleteSegment: false,
+    filters: false,
+    createFilter: false,
+    updateFilter: false,
+    deleteFilter: false,
   },
   error: null,
 };
@@ -350,6 +365,76 @@ export const deleteSurveyReportSegment = createAsyncThunk(
       return segmentId;
     } catch (error) {
       return rejectWithValue(handleApiError(error, 'Failed to delete survey report segment'));
+    }
+  }
+);
+
+// Async thunks for filters
+export const fetchSurveyAnalysisFilters = createAsyncThunk(
+  'surveyAnalysis/fetchSurveyAnalysisFilters',
+  async ({ analysisId, forceRefresh = false }: { analysisId: string, forceRefresh?: boolean }, 
+  { rejectWithValue }) => {
+    try {
+      return await surveyAnalysisApi.getSurveyAnalysisFilters(analysisId, forceRefresh);
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to fetch survey analysis filters'));
+    }
+  }
+);
+
+export const fetchSurveyAnalysisFilterById = createAsyncThunk(
+  'surveyAnalysis/fetchSurveyAnalysisFilterById',
+  async ({ filterId, forceRefresh = false }: { filterId: string, forceRefresh?: boolean }, 
+  { rejectWithValue }) => {
+    try {
+      return await surveyAnalysisApi.getSurveyAnalysisFilterById(filterId, forceRefresh);
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to fetch survey analysis filter'));
+    }
+  }
+);
+
+export const createSurveyAnalysisFilter = createAsyncThunk(
+  'surveyAnalysis/createSurveyAnalysisFilter',
+  async (filterData: {
+    survey_analysis_id: string,
+    survey_analysis_question_id: string,
+    criteria: FilterCriterion[]
+  }, { rejectWithValue }) => {
+    try {
+      const response = await surveyAnalysisApi.createSurveyAnalysisFilter(filterData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to create survey analysis filter'));
+    }
+  }
+);
+
+export const updateSurveyAnalysisFilter = createAsyncThunk(
+  'surveyAnalysis/updateSurveyAnalysisFilter',
+  async ({ filterId, filterData }: {
+    filterId: string,
+    filterData: {
+      criteria: FilterCriterion[]
+    }
+  }, { rejectWithValue }) => {
+    try {
+      const response = await surveyAnalysisApi.updateSurveyAnalysisFilter(filterId, filterData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to update survey analysis filter'));
+    }
+  }
+);
+
+export const deleteSurveyAnalysisFilter = createAsyncThunk(
+  'surveyAnalysis/deleteSurveyAnalysisFilter',
+  async (filterId: string, { rejectWithValue }) => {
+    try {
+      await surveyAnalysisApi.deleteSurveyAnalysisFilter(filterId);
+      return filterId;
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to delete survey analysis filter'));
     }
   }
 );
@@ -693,6 +778,110 @@ export const surveyAnalysisSlice = createSlice({
         state.loadingStates.deleteSegment = false;
         state.loading = false;
         state.error = action.payload as string;
+      })
+
+      // Filters
+      .addCase(fetchSurveyAnalysisFilters.pending, (state) => {
+        state.loadingStates.filters = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSurveyAnalysisFilters.fulfilled, (state, action) => {
+        if (state.currentAnalysis) {
+          state.currentAnalysis.filters = action.payload;
+        }
+        state.loadingStates.filters = false;
+        state.loading = false;
+      })
+      .addCase(fetchSurveyAnalysisFilters.rejected, (state, action) => {
+        state.loadingStates.filters = false;
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // Fetch Filter by ID
+      .addCase(fetchSurveyAnalysisFilterById.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchSurveyAnalysisFilterById.fulfilled, (state, action) => {
+        if (state.currentAnalysis && state.currentAnalysis.filters) {
+          const filterIndex = state.currentAnalysis.filters.findIndex(filter => filter.id === action.payload.id);
+          if (filterIndex >= 0) {
+            state.currentAnalysis.filters[filterIndex] = action.payload;
+          } else {
+            state.currentAnalysis.filters.push(action.payload);
+          }
+        }
+        state.loading = false;
+      })
+      .addCase(fetchSurveyAnalysisFilterById.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // Create Filter
+      .addCase(createSurveyAnalysisFilter.pending, (state) => {
+        state.loadingStates.createFilter = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createSurveyAnalysisFilter.fulfilled, (state, action) => {
+        if (state.currentAnalysis) {
+          if (!state.currentAnalysis.filters) {
+            state.currentAnalysis.filters = [];
+          }
+          state.currentAnalysis.filters.push(action.payload);
+        }
+        state.loadingStates.createFilter = false;
+        state.loading = false;
+      })
+      .addCase(createSurveyAnalysisFilter.rejected, (state, action) => {
+        state.loadingStates.createFilter = false;
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // Update Filter
+      .addCase(updateSurveyAnalysisFilter.pending, (state) => {
+        state.loadingStates.updateFilter = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateSurveyAnalysisFilter.fulfilled, (state, action) => {
+        if (state.currentAnalysis && state.currentAnalysis.filters) {
+          state.currentAnalysis.filters = state.currentAnalysis.filters.map(filter => 
+            filter.id === action.payload.id ? action.payload : filter
+          );
+        }
+        state.loadingStates.updateFilter = false;
+        state.loading = false;
+      })
+      .addCase(updateSurveyAnalysisFilter.rejected, (state, action) => {
+        state.loadingStates.updateFilter = false;
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+
+      // Delete Filter
+      .addCase(deleteSurveyAnalysisFilter.pending, (state) => {
+        state.loadingStates.deleteFilter = true;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteSurveyAnalysisFilter.fulfilled, (state, action) => {
+        if (state.currentAnalysis && state.currentAnalysis.filters) {
+          state.currentAnalysis.filters = state.currentAnalysis.filters.filter(
+            filter => filter.id !== action.payload
+          );
+        }
+        state.loadingStates.deleteFilter = false;
+        state.loading = false;
+      })
+      .addCase(deleteSurveyAnalysisFilter.rejected, (state, action) => {
+        state.loadingStates.deleteFilter = false;
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
@@ -727,6 +916,10 @@ export const selectDeleteTopicLoading = (state: RootState) => state.surveyAnalys
 export const selectCreateSegmentLoading = (state: RootState) => state.surveyAnalysis.loadingStates.createSegment;
 export const selectUpdateSegmentLoading = (state: RootState) => state.surveyAnalysis.loadingStates.updateSegment;
 export const selectDeleteSegmentLoading = (state: RootState) => state.surveyAnalysis.loadingStates.deleteSegment;
+export const selectFiltersLoading = (state: RootState) => state.surveyAnalysis.loadingStates.filters;
+export const selectCreateFilterLoading = (state: RootState) => state.surveyAnalysis.loadingStates.createFilter;
+export const selectUpdateFilterLoading = (state: RootState) => state.surveyAnalysis.loadingStates.updateFilter;
+export const selectDeleteFilterLoading = (state: RootState) => state.surveyAnalysis.loadingStates.deleteFilter;
 
 // Export reducer
 export default surveyAnalysisSlice.reducer; 

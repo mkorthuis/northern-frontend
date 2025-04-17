@@ -23,9 +23,27 @@ interface SurveyAnalysisUpdate {
     filters?: { value: string }[] | null;
 }
 
+// Filter criteria definition
+interface FilterCriterion {
+    value: string;
+}
+
+// Updated filter interface based on the API documentation
 interface SurveyAnalysisFilterGet {
     id: string; // uuid
-    value: string; //uuid
+    survey_analysis_id: string; // uuid
+    survey_analysis_question_id: string; // uuid
+    criteria: FilterCriterion[];
+}
+
+interface SurveyAnalysisFilterCreate {
+    survey_analysis_id: string; // uuid
+    survey_analysis_question_id: string; // uuid
+    criteria: FilterCriterion[];
+}
+
+interface SurveyAnalysisFilterUpdate {
+    criteria: FilterCriterion[];
 }
 
 interface SurveyAnalysisGet {
@@ -143,7 +161,7 @@ export const surveyAnalysisApi = {
     
     // Survey Analysis endpoints
     getSurveyAnalyses: (surveyId: string, forceRefresh = false) => 
-        fetchData(buildSurveyAnalysisUrl(`${surveyId}`), forceRefresh),
+        fetchData(buildSurveyAnalysisUrl(`surveys/${surveyId}`), forceRefresh),
     
     getSurveyAnalysisById: (analysisId: string, forceRefresh = false) => 
         fetchData(buildSurveyAnalysisUrl(`analyses/${analysisId}`), forceRefresh),
@@ -172,6 +190,22 @@ export const surveyAnalysisApi = {
     
     deleteSurveyAnalysisQuestion: (questionId: string) => 
         axiosInstance.delete(buildSurveyAnalysisUrl(`analysis-questions/${questionId}`)),
+    
+    // Filter endpoints
+    getSurveyAnalysisFilters: (analysisId: string, forceRefresh = false) => 
+        fetchData(buildSurveyAnalysisUrl(`analyses/${analysisId}/filters`), forceRefresh),
+    
+    getSurveyAnalysisFilterById: (filterId: string, forceRefresh = false) => 
+        fetchData(buildSurveyAnalysisUrl(`filters/${filterId}`), forceRefresh),
+    
+    createSurveyAnalysisFilter: (filterData: SurveyAnalysisFilterCreate) => 
+        axiosInstance.post(buildSurveyAnalysisUrl('filters'), filterData),
+    
+    updateSurveyAnalysisFilter: (filterId: string, filterData: SurveyAnalysisFilterUpdate) => 
+        axiosInstance.put(buildSurveyAnalysisUrl(`filters/${filterId}`), filterData),
+    
+    deleteSurveyAnalysisFilter: (filterId: string) => 
+        axiosInstance.delete(buildSurveyAnalysisUrl(`filters/${filterId}`)),
     
     // Topics endpoints
     getSurveyQuestionTopics: (surveyId: string, forceRefresh = false) => 
