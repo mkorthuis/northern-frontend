@@ -40,20 +40,26 @@ interface AnalysisChartProps {
 }
 
 const AnalysisChart: React.FC<AnalysisChartProps> = ({ chartTypeId, data, sortByValue }) => {
-  const sortedData = sortByValue 
+  // Sort data by number of responses (highest first) if sortByValue is true
+  const sortedData = sortByValue && data.length > 1
     ? [...data].sort((a, b) => b.value - a.value)
     : data;
 
   switch (chartTypeId) {
     case 1: // Bar Chart
       return (
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={sortedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+        <ResponsiveContainer width="100%" height={350}>
+          <BarChart data={sortedData} margin={{ top: 20, right: 30, left: 20, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
+            <XAxis 
+              dataKey="name" 
+              height={80}
+              angle={-45}
+              textAnchor="end"
+              interval={0}
+            />
             <YAxis />
             <Tooltip />
-            <Legend />
             <Bar dataKey="value" fill="#8884d8" />
           </BarChart>
         </ResponsiveContainer>
@@ -61,8 +67,8 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ chartTypeId, data, sortBy
     
     case 2: // Pie Chart
       return (
-        <ResponsiveContainer width="100%" height={300}>
-          <PieChart>
+        <ResponsiveContainer width="100%" height={350}>
+          <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
             <Pie
               data={sortedData}
               dataKey="value"
@@ -71,31 +77,39 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ chartTypeId, data, sortBy
               cy="50%"
               outerRadius={100}
               fill="#8884d8"
-              label
+              label={(entry) => {
+                // Truncate long labels to prevent overcrowding
+                const name = typeof entry.name === 'string' ? entry.name : String(entry.name);
+                return name.length > 20 ? name.substring(0, 17) + '...' : name;
+              }}
             >
               {sortedData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Pie>
             <Tooltip />
-            <Legend />
+            <Legend wrapperStyle={{ overflowY: 'auto', maxHeight: 100 }} />
           </PieChart>
         </ResponsiveContainer>
       );
 
     case 3: // Horizontal Bar Chart
       return (
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={350}>
           <BarChart 
             data={sortedData} 
             layout="vertical"
-            margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+            margin={{ top: 20, right: 30, left: 150, bottom: 20 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis type="number" />
-            <YAxis type="category" dataKey="name" width={80} />
+            <YAxis 
+              type="category" 
+              dataKey="name" 
+              width={140}
+              tick={{ width: 135, textAnchor: 'end' }}
+            />
             <Tooltip />
-            <Legend />
             <Bar 
               dataKey="value" 
               fill="#8884d8"

@@ -7,9 +7,9 @@ const PrivateLayout = () => {
   const isMediumOrLarger = useMediaQuery(theme.breakpoints.up('md'));
 
   const content = (
-    <Container maxWidth="xl" sx={{ py: isMediumOrLarger ? 2 : 0, px: isMediumOrLarger ? 2 : 0 }}>
+    <Container maxWidth="xl" sx={{ py: isMediumOrLarger ? 0 : 0, px: isMediumOrLarger ? 0 : 0 }}>
         <Top />
-        <Box component="main" sx={{ flexGrow: 1, px: { xs: 2, md: 3 } }}>
+        <Box component="main" sx={{ flexGrow: 1, px: { xs: 2, md: 3 }, py: 3, backgroundColor: '#FFFFFF' }}>
           <Outlet />
         </Box>
     </Container>

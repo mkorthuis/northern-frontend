@@ -20,6 +20,12 @@ interface SurveyAnalysisCreate {
 interface SurveyAnalysisUpdate {
     title?: string | null;
     description?: string | null;
+    filters?: { value: string }[] | null;
+}
+
+interface SurveyAnalysisFilterGet {
+    id: string; // uuid
+    value: string; //uuid
 }
 
 interface SurveyAnalysisGet {
@@ -29,12 +35,14 @@ interface SurveyAnalysisGet {
     description?: string | null;
     date_created: string; // date-time
     date_updated: string; // date-time
+    filters: SurveyAnalysisFilterGet[];
     analysis_questions: SurveyAnalysisQuestionGet[];
 }
 
 interface SurveyAnalysisQuestionCreate {
     survey_analysis_id: string; // uuid
     question_id: string; // uuid
+    is_demographic: boolean;
     chart_type_id: number;
     sort_by_value?: boolean;
     topic_ids?: string[] | null; // array of uuid
@@ -44,6 +52,7 @@ interface SurveyAnalysisQuestionCreate {
 interface SurveyAnalysisQuestionUpdate {
     chart_type_id?: number | null;
     sort_by_value?: boolean | null;
+    is_demographic: boolean;
     topic_ids?: string[] | null; // array of uuid
     report_segment_ids?: string[] | null; // array of uuid
 }
@@ -53,6 +62,7 @@ interface SurveyAnalysisQuestionGet {
     question_id: string; // uuid
     chart_type_id: number;
     sort_by_value: boolean;
+    is_demographic: boolean;
     chart_type: ChartTypeGet;
     question: QuestionGet;
     topics: SurveyQuestionTopicGet[];

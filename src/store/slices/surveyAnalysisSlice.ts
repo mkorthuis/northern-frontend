@@ -8,6 +8,11 @@ export interface ChartType {
   name: string;
 }
 
+export interface SurveyAnalysisFilter {
+  id: string;
+  value: string;
+}
+
 export interface SurveyAnalysis {
   id?: string;
   survey_id: string;
@@ -15,6 +20,7 @@ export interface SurveyAnalysis {
   description?: string | null;
   date_created?: string;
   date_updated?: string;
+  filters?: SurveyAnalysisFilter[];
   analysis_questions?: SurveyAnalysisQuestion[];
 }
 
@@ -23,6 +29,7 @@ export interface SurveyAnalysisQuestion {
   question_id: string;
   chart_type_id: number;
   sort_by_value: boolean;
+  is_demographic: boolean;
   chart_type?: ChartType;
   question?: any; // Using any for simplicity, but should match QuestionGet from surveySlice
   topics?: SurveyQuestionTopic[];
@@ -156,7 +163,11 @@ export const createSurveyAnalysis = createAsyncThunk(
 export const updateSurveyAnalysis = createAsyncThunk(
   'surveyAnalysis/updateSurveyAnalysis',
   async ({ analysisId, analysisData }: 
-  { analysisId: string, analysisData: { title?: string | null, description?: string | null } }, 
+  { analysisId: string, analysisData: { 
+    title?: string | null, 
+    description?: string | null,
+    filters?: { value: string }[] | null 
+  } }, 
   { rejectWithValue }) => {
     try {
       const response = await surveyAnalysisApi.updateSurveyAnalysis(analysisId, analysisData);
@@ -199,6 +210,7 @@ export const createSurveyAnalysisQuestion = createAsyncThunk(
     question_id: string,
     chart_type_id: number,
     sort_by_value?: boolean,
+    is_demographic: boolean,
     topic_ids?: string[] | null,
     report_segment_ids?: string[] | null
   }, { rejectWithValue }) => {
@@ -218,6 +230,7 @@ export const updateSurveyAnalysisQuestion = createAsyncThunk(
     questionData: {
       chart_type_id?: number | null,
       sort_by_value?: boolean | null,
+      is_demographic: boolean,
       topic_ids?: string[] | null,
       report_segment_ids?: string[] | null
     }

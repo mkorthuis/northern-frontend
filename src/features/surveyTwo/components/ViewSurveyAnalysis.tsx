@@ -95,6 +95,7 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: chartTypeId,
           sort_by_value: question.sort_by_value,
+          is_demographic: question.is_demographic,
           topic_ids: question.topics?.map(t => t.id as string) || null,
           report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
@@ -114,6 +115,7 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: question.chart_type_id,
           sort_by_value: sortByValue,
+          is_demographic: question.is_demographic,
           topic_ids: question.topics?.map(t => t.id as string) || null,
           report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
@@ -133,6 +135,7 @@ const ViewSurveyAnalysis: React.FC = () => {
         questionData: {
           chart_type_id: question.chart_type_id,
           sort_by_value: question.sort_by_value,
+          is_demographic: question.is_demographic,
           topic_ids: topicIds.length > 0 ? topicIds : null,
           report_segment_ids: question.report_segments?.map(s => s.id as string) || null
         }
@@ -343,6 +346,15 @@ const ViewSurveyAnalysis: React.FC = () => {
                             </Typography>
                           )}
                         </Box>
+                      </Box>
+
+                      <Box sx={{ minWidth: 200 }}>
+                        <Typography variant="caption" color="textSecondary">
+                          Question Type
+                        </Typography>
+                        <Typography variant="body2">
+                          {analysisQuestion.is_demographic ? 'Demographic Question' : 'Standard Question'}
+                        </Typography>
                       </Box>
                     </Box>
                   </Box>

@@ -23,7 +23,8 @@ import {
   FormHelperText,
   LinearProgress,
   Chip,
-  OutlinedInput
+  OutlinedInput,
+  SelectChangeEvent
 } from '@mui/material';
 import { PATHS } from '@/routes/paths';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -38,7 +39,8 @@ import {
   fetchSurveyAnalysisById,
   ChartType,
   SurveyQuestionTopic,
-  SurveyReportSegment
+  SurveyReportSegment,
+  SurveyAnalysisFilter
 } from '@/store/slices/surveyAnalysisSlice';
 import { fetchSurveyById } from '@/store/slices/surveySlice';
 import { getQuestionTypeById } from '@/constants/questionTypes';
@@ -47,11 +49,13 @@ import { getQuestionTypeById } from '@/constants/questionTypes';
 interface AnalysisFormData {
   title: string;
   description: string;
+  filterQuestionIds: string[];
 }
 
 interface QuestionSettings {
   chartTypeId: number;
   sortByValue: boolean;
+  isDemographic: boolean;
   topicIds: string[];
   segmentIds: string[];
 }
@@ -80,6 +84,7 @@ interface QuestionSettingsProps {
   segmentsLoading: boolean;
   onChartTypeChange: (questionId: string, chartTypeId: number) => void;
   onSortByValueChange: (questionId: string, sortByValue: boolean) => void;
+  onDemographicChange: (questionId: string, isDemographic: boolean) => void;
   onTopicChange: (questionId: string, topicIds: string[]) => void;
   onSegmentChange: (questionId: string, segmentIds: string[]) => void;
 }
@@ -96,6 +101,7 @@ const QuestionSettingsPanel: React.FC<QuestionSettingsProps> = ({
   segmentsLoading,
   onChartTypeChange,
   onSortByValueChange,
+  onDemographicChange,
   onTopicChange,
   onSegmentChange
 }) => (
@@ -207,6 +213,19 @@ const QuestionSettingsPanel: React.FC<QuestionSettingsProps> = ({
         </Select>
         <FormHelperText>Assign report segments to this question</FormHelperText>
       </FormControl>
+      
+      <FormControl sx={{ minWidth: 200, display: 'flex', flexDirection: 'row', alignItems: 'center' }} size="small">
+        <Checkbox
+          checked={settings.isDemographic}
+          onChange={(e) => onDemographicChange(questionId, e.target.checked)}
+          disabled={isSubmitting}
+          sx={{ mr: 1 }}
+        />
+        <Box>
+          <Typography variant="body2">Demographic Question</Typography>
+          <FormHelperText sx={{ ml: 0, pl: 0 }}>Can be used for filtering and segmentation</FormHelperText>
+        </Box>
+      </FormControl>
     </Box>
   </Box>
 );
@@ -228,7 +247,8 @@ const EditSurveyAnalysis: React.FC = () => {
   // Local form state
   const [formData, setFormData] = useState<AnalysisFormData>({
     title: '',
-    description: ''
+    description: '',
+    filterQuestionIds: []
   });
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [questionSettings, setQuestionSettings] = useState<Map<string, QuestionSettings>>(new Map());
@@ -247,6 +267,34 @@ const EditSurveyAnalysis: React.FC = () => {
   const isSurveyLoading = surveyLoadingStates.survey === 'loading';
   const isSubmitting = updateAnalysisLoading || updateQuestionLoading;
   const isLoading = isSurveyLoading || chartTypesLoading || isSubmitting;
+
+  // Get demographic questions
+  const demographicQuestions = React.useMemo(() => {
+    if (!currentSurvey || !currentSurvey.questions) return [];
+    
+    // Get all questions that have been marked as demographic in any analysis question
+    const questionsWithDemographicSettings = currentAnalysis?.analysis_questions
+      ?.filter(aq => aq.is_demographic)
+      .map(aq => aq.question_id) || [];
+    
+    // Get currently selected questions with isDemographic=true
+    const selectedDemographicQuestions = Array.from(questionSettings.entries())
+      .filter(([_, settings]) => settings.isDemographic)
+      .map(([questionId]) => questionId);
+    
+    // Combine both sets of demographic question IDs
+    const allDemographicIds = new Set([
+      ...questionsWithDemographicSettings,
+      ...selectedDemographicQuestions
+    ]);
+    
+    // Return the full question objects for each demographic question
+    return currentSurvey.questions.filter(question => 
+      allDemographicIds.has(question.id as string) || 
+      (currentAnalysis?.filters && 
+        currentAnalysis.filters.some(filter => filter.value === question.id))
+    );
+  }, [currentSurvey, currentAnalysis, questionSettings]);
 
   // Effects
   useEffect(() => {
@@ -276,7 +324,10 @@ const EditSurveyAnalysis: React.FC = () => {
     // Initialize form data from current analysis
     setFormData({
       title: currentAnalysis.title,
-      description: currentAnalysis.description || ''
+      description: currentAnalysis.description || '',
+      filterQuestionIds: currentAnalysis.filters 
+        ? currentAnalysis.filters.map(filter => filter.value)
+        : []
     });
 
     // Initialize selected questions and their settings
@@ -289,6 +340,7 @@ const EditSurveyAnalysis: React.FC = () => {
         settings.set(aq.question.id, {
           chartTypeId: aq.chart_type_id,
           sortByValue: aq.sort_by_value,
+          isDemographic: aq.is_demographic,
           topicIds: aq.topics?.map(t => t.id as string) || [],
           segmentIds: aq.report_segments?.map(s => s.id as string) || []
         });
@@ -328,6 +380,14 @@ const EditSurveyAnalysis: React.FC = () => {
     }
   };
 
+  const handleFilterQuestionChange = (e: SelectChangeEvent<string[]>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ 
+      ...prev, 
+      filterQuestionIds: typeof value === 'string' ? [value] : value 
+    }));
+  };
+
   const handleQuestionToggle = (questionId: string) => {
     setSelectedQuestions(prev => {
       if (prev.includes(questionId)) {
@@ -349,6 +409,7 @@ const EditSurveyAnalysis: React.FC = () => {
         newSettings.set(questionId, { 
           chartTypeId: defaultChartTypeId, 
           sortByValue: false,
+          isDemographic: false,
           topicIds: [],
           segmentIds: []
         });
@@ -366,6 +427,7 @@ const EditSurveyAnalysis: React.FC = () => {
       const current = newSettings.get(questionId) || { 
         chartTypeId: 1, 
         sortByValue: false, 
+        isDemographic: false,
         topicIds: [],
         segmentIds: []
       };
@@ -380,10 +442,26 @@ const EditSurveyAnalysis: React.FC = () => {
       const current = newSettings.get(questionId) || { 
         chartTypeId: 1, 
         sortByValue: false, 
+        isDemographic: false,
         topicIds: [],
         segmentIds: []
       };
       newSettings.set(questionId, { ...current, sortByValue });
+      return newSettings;
+    });
+  };
+
+  const handleDemographicChange = (questionId: string, isDemographic: boolean) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: 1, 
+        sortByValue: false,
+        isDemographic: false,
+        topicIds: [],
+        segmentIds: []
+      };
+      newSettings.set(questionId, { ...current, isDemographic });
       return newSettings;
     });
   };
@@ -394,6 +472,7 @@ const EditSurveyAnalysis: React.FC = () => {
       const current = newSettings.get(questionId) || { 
         chartTypeId: chartTypes[0]?.id || 1, 
         sortByValue: false,
+        isDemographic: false,
         topicIds: [],
         segmentIds: []
       };
@@ -408,6 +487,7 @@ const EditSurveyAnalysis: React.FC = () => {
       const current = newSettings.get(questionId) || { 
         chartTypeId: chartTypes[0]?.id || 1, 
         sortByValue: false,
+        isDemographic: false,
         topicIds: [],
         segmentIds: []
       };
@@ -429,7 +509,10 @@ const EditSurveyAnalysis: React.FC = () => {
         analysisId,
         analysisData: {
           title: formData.title,
-          description: formData.description || null
+          description: formData.description || null,
+          filters: formData.filterQuestionIds.length > 0 
+            ? formData.filterQuestionIds.map(id => ({ value: id }))
+            : null
         }
       }));
 
@@ -443,6 +526,7 @@ const EditSurveyAnalysis: React.FC = () => {
         const settings = questionSettings.get(questionId) || {
           chartTypeId: chartTypes[0]?.id || 1,
           sortByValue: false,
+          isDemographic: false,
           topicIds: [],
           segmentIds: []
         };
@@ -456,6 +540,7 @@ const EditSurveyAnalysis: React.FC = () => {
           const updateData = {
             chart_type_id: settings.chartTypeId,
             sort_by_value: settings.sortByValue,
+            is_demographic: settings.isDemographic,
             topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
             report_segment_ids: settings.segmentIds.length > 0 ? settings.segmentIds : null
           };
@@ -471,6 +556,7 @@ const EditSurveyAnalysis: React.FC = () => {
             question_id: questionId,
             chart_type_id: settings.chartTypeId,
             sort_by_value: settings.sortByValue,
+            is_demographic: settings.isDemographic,
             topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
             report_segment_ids: settings.segmentIds.length > 0 ? settings.segmentIds : null
           }));
@@ -599,6 +685,42 @@ const EditSurveyAnalysis: React.FC = () => {
               helperText="Provide additional details about this analysis"
               disabled={isSubmitting}
             />
+
+            <FormControl fullWidth margin="normal">
+              <InputLabel id="filter-question-label">Filter Questions (Optional)</InputLabel>
+              <Select
+                labelId="filter-question-label"
+                id="filter-question-select"
+                multiple
+                value={formData.filterQuestionIds}
+                onChange={handleFilterQuestionChange}
+                input={<OutlinedInput label="Filter Questions (Optional)" />}
+                disabled={isSubmitting || demographicQuestions.length === 0}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {selected.map((questionId) => {
+                      const question = demographicQuestions.find(q => q.id === questionId);
+                      return question ? (
+                        <Chip key={questionId} label={question.title} size="small" />
+                      ) : null;
+                    })}
+                  </Box>
+                )}
+              >
+                {demographicQuestions.length === 0 ? (
+                  <MenuItem disabled>No demographic questions available</MenuItem>
+                ) : (
+                  demographicQuestions.map((question) => (
+                    <MenuItem key={question.id} value={question.id as string}>
+                      {question.title} {question.external_question_id ? `(ID: ${question.external_question_id})` : ''}
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+              <FormHelperText>
+                Select demographic questions to use as filters for this analysis
+              </FormHelperText>
+            </FormControl>
           </Box>
           
           {/* Questions Section */}
@@ -627,6 +749,7 @@ const EditSurveyAnalysis: React.FC = () => {
                   const settings = questionSettings.get(questionId) || { 
                     chartTypeId: chartTypes[0]?.id || 1, 
                     sortByValue: false, 
+                    isDemographic: false,
                     topicIds: [],
                     segmentIds: []
                   };
@@ -661,6 +784,7 @@ const EditSurveyAnalysis: React.FC = () => {
                           segmentsLoading={segmentsLoading}
                           onChartTypeChange={handleChartTypeChange}
                           onSortByValueChange={handleSortByValueChange}
+                          onDemographicChange={handleDemographicChange}
                           onTopicChange={handleTopicChange}
                           onSegmentChange={handleSegmentChange}
                         />
