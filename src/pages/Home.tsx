@@ -8,9 +8,6 @@ import { PATHS } from '@/routes/paths';
 export default function Home() {
   const navigate = useNavigate();
 
-  const handleGoToSurveys = () => {
-    navigate(PATHS.PUBLIC.SURVEYS.path);
-  };
 
   const handleGoToSurveysV2 = () => {
     navigate(PATHS.PUBLIC.SURVEYS_V2.path);
@@ -30,14 +27,6 @@ export default function Home() {
       <Typography variant="h2">
         Home
       </Typography>
-      <Button 
-        variant="contained" 
-        color="primary" 
-        size="large"
-        onClick={handleGoToSurveys}
-      >
-        Go to Survey Management
-      </Button>
       <Button 
         variant="contained" 
         color="primary" 
