@@ -225,6 +225,13 @@ const ViewSurveyAnalysis: React.FC = () => {
               Edit Analysis
             </Button>
             <Button 
+              variant="contained"
+              color="secondary"
+              onClick={() => navigate(`${PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_OUTPUT.path.replace(':surveyId', surveyId || '').replace(':analysisId', analysisId || '')}`)}
+            >
+              Generate Output
+            </Button>
+            <Button 
               variant="outlined" 
               color="error"
               onClick={() => setDeleteDialogOpen(true)}

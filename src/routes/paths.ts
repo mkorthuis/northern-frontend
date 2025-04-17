@@ -20,6 +20,7 @@ export const PATHS = {
         SURVEYS_V2_ANALYSIS_CREATE: { path: '/surveys-v2/:surveyId/analysis/create', title: 'Create Survey Analysis V2' },
         SURVEYS_V2_ANALYSIS_VIEW: { path: '/surveys-v2/:surveyId/analysis/view/:analysisId', title: 'View Survey Analysis V2' },
         SURVEYS_V2_ANALYSIS_EDIT: { path: '/surveys-v2/:surveyId/analysis/edit/:analysisId', title: 'Edit Survey Analysis V2' },
+        SURVEYS_V2_ANALYSIS_OUTPUT: { path: '/surveys-v2/:surveyId/analysis/output/:analysisId', title: 'Survey Analysis Output V2' },
     },
 
     // Private routes

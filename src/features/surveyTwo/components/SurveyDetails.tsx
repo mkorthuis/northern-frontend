@@ -224,6 +224,8 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({
             </Typography>
           </Box>
         )}
+
+        <SurveyResults survey={survey} loading={loading} />
         
         {/* Survey Analysis Section */}
         <Box sx={{ mb: 3 }}>
@@ -351,7 +353,6 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({
 
         {/* Survey Results Section */}
         <Divider sx={{ mb: 3 }} />
-        <SurveyResults survey={survey} loading={loading} />
 
         {/* Delete Confirmation Dialog */}
         <Dialog

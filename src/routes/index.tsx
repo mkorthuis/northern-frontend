@@ -22,6 +22,7 @@ import EditSurvey from "@/features/surveyTwo/components/EditSurvey";
 import CreateSurveyAnalysis from "@/features/surveyTwo/components/CreateSurveyAnalysis";
 import ViewSurveyAnalysis from "@/features/surveyTwo/components/ViewSurveyAnalysis";
 import EditSurveyAnalysis from "@/features/surveyTwo/components/EditSurveyAnalysis";
+import OutputSurveyAnalysis from "@/features/surveyTwo/components/OutputSurveyAnalysis";
 
 const router = createBrowserRouter(
   [
@@ -50,6 +51,7 @@ const router = createBrowserRouter(
         { path: PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_CREATE.path, element: <CreateSurveyAnalysis /> },
         { path: PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_VIEW.path, element: <ViewSurveyAnalysis /> },
         { path: PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_EDIT.path, element: <EditSurveyAnalysis /> },
+        { path: PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_OUTPUT.path, element: <OutputSurveyAnalysis /> },
         { path: PATHS.PUBLIC.HOME.path, element: <Home /> },
       ]
     },
