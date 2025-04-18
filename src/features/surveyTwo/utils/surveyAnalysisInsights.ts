@@ -68,11 +68,29 @@ export const processAnswer = (answer: any, valueCountMap: Map<string, number>) =
  * Helper function to process survey responses without filtering
  * @param paginatedResponses The survey responses to process
  * @param questionId ID of the question to process
+ * @param currentAnalysis The current analysis configuration (optional)
  * @returns Array with a single data series containing all responses
  */
-export const processAllResponses = (paginatedResponses: any, questionId: string): ChartDataSeries[] => {
+export const processAllResponses = (
+  paginatedResponses: any, 
+  questionId: string,
+  currentAnalysis?: any
+): ChartDataSeries[] => {
   const valueCountMap = new Map<string, number>();
   
+  // Try to find the survey question from the analysis question data
+  const analysisQuestion = currentAnalysis?.analysis_questions?.find(
+    (q: any) => q.question_id === questionId
+  );
+  
+  // Get the actual survey question object
+  const surveyQuestion = analysisQuestion?.question;
+  
+  // Log the question ID and related survey question
+  console.log('Processing question with ID:', questionId);
+  console.log('Survey question:', surveyQuestion);
+  
+  // Process responses and collect answer counts
   paginatedResponses?.items?.forEach((response: any) => {
     const answer = response.answers?.find((a: any) => a.question_id === questionId);
     if (answer) {
@@ -80,6 +98,60 @@ export const processAllResponses = (paginatedResponses: any, questionId: string)
     }
   });
   
+  // If we have a valid survey question with options, map and sort the data
+  if (surveyQuestion?.options && valueCountMap.size > 0) {
+    console.log('Original valueCountMap:', Array.from(valueCountMap.entries()));
+    
+    // Create a mapping from option id to option object
+    const optionMap = new Map();
+    surveyQuestion.options.forEach((option: any) => {
+      // Use either id or text as the key, depending on what's stored in valueCountMap
+      optionMap.set(option.id, option);
+      if (option.text) {
+        optionMap.set(option.text, option);
+      }
+    });
+    
+    console.log('Option map:', Array.from(optionMap.entries()));
+    
+    // Create a new sorted map based on option order_index
+    const sortedCountMap = new Map<string, number>();
+    
+    // Create an array of entries from valueCountMap and add the corresponding option
+    const entriesWithOptions = Array.from(valueCountMap.entries()).map(([key, count]) => {
+      const option = optionMap.get(key);
+      
+      // For debugging, log each mapping attempt
+      console.log(`Looking up option for key "${key}":`, option);
+      
+      return {
+        key,
+        count,
+        option,
+        // Default to a high number if we can't find the option to put it at the end
+        orderIndex: option?.order_index ?? 999
+      };
+    });
+    
+    // Sort entries by order_index
+    entriesWithOptions.sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    console.log('Sorted entries:', entriesWithOptions);
+    
+    // Populate the sorted map
+    entriesWithOptions.forEach(entry => {
+      // Use option text if available, otherwise use the original key
+      const displayKey = entry.option?.text || entry.key;
+      sortedCountMap.set(displayKey, entry.count);
+    });
+    
+    //debugger;
+    // Use the sorted map for creating the data series
+    return [createDataSeries('All Responses', sortedCountMap)];
+  }
+  //debugger;
+  
+  // If no options or can't sort, return the original map
   return [createDataSeries('All Responses', valueCountMap)];
 };
 
@@ -102,7 +174,7 @@ export const getQuestionData = (
   
   // If no filters, just process all responses
   if (filters.length === 0) {
-    return processAllResponses(paginatedResponses, questionId);
+    return processAllResponses(paginatedResponses, questionId, currentAnalysis);
   }
   
   // Get the first filter
@@ -110,7 +182,7 @@ export const getQuestionData = (
   
   // If the filter has no criteria, process all responses
   if (!firstFilter.criteria || firstFilter.criteria.length === 0) {
-    return processAllResponses(paginatedResponses, questionId);
+    return processAllResponses(paginatedResponses, questionId, currentAnalysis);
   }
   
   // Get the filter question ID
@@ -123,13 +195,20 @@ export const getQuestionData = (
   
   if (!filterAnalysisQuestion) {
     // If we can't find the filter question, fall back to all responses
-    return processAllResponses(paginatedResponses, questionId);
+    return processAllResponses(paginatedResponses, questionId, currentAnalysis);
   }
   
   const filterBaseQuestionId = filterAnalysisQuestion.question_id;
   
+  // Find the analysis question to get the survey question for sorting
+  const analysisQuestion = currentAnalysis?.analysis_questions?.find(
+    (q: any) => q.question_id === questionId
+  );
+  
+  const surveyQuestion = analysisQuestion?.question;
+  
   // Create a data series for each filter value
-  return firstFilter.criteria.map((criterion: any) => {
+  const dataSeries = firstFilter.criteria.map((criterion: any) => {
     const filterValue = criterion.value;
     
     // Filter responses based on this filter value
@@ -161,6 +240,13 @@ export const getQuestionData = (
     
     return createDataSeries(filterValue, seriesValueCountMap);
   });
+  
+  // Sort the data series if we have a valid survey question with options
+  if (surveyQuestion?.options) {
+    return getSortedChartData(dataSeries, surveyQuestion);
+  }
+  
+  return dataSeries;
 };
 
 /**
@@ -215,7 +301,7 @@ export const fetchInsightData = (
   result.allResponses = {
     surveyQuestion,
     surveyResponses: allAnswers,
-    chartData: processAllResponses(paginatedResponses, questionId),
+    chartData: getSortedChartData(processAllResponses(paginatedResponses, questionId, currentAnalysis), surveyQuestion),
     questionType,
     responseCount: allAnswers.length,
     uniqueValues: allUniqueValues.size
@@ -284,11 +370,18 @@ export const fetchInsightData = (
           }
         }
         
+        // Create sorted chart data based on question options
+        const sortedChartData = getSortedChartData(
+          [createDataSeries(displayFilterValue, valueCountMap)], 
+          surveyQuestion
+        );
+        //debugger;
+        
         // Return insight data for this filter value
         return {
           surveyQuestion,
           surveyResponses: filteredAnswers,
-          chartData: [createDataSeries(displayFilterValue, valueCountMap)],
+          chartData: sortedChartData,
           questionType,
           responseCount: filteredAnswers.length,
           uniqueValues,
@@ -300,6 +393,49 @@ export const fetchInsightData = (
   }
   
   return result;
+};
+
+/**
+ * Helper function to sort chart data series based on question options' order_index
+ * @param chartData The original chart data series
+ * @param surveyQuestion The survey question with options
+ * @returns Sorted chart data series
+ */
+const getSortedChartData = (chartData: ChartDataSeries[], surveyQuestion: any): ChartDataSeries[] => {
+  // If no chart data or no question options, return the original data
+  if (!chartData || !chartData.length || !surveyQuestion?.options || !surveyQuestion.options.length) {
+    return chartData;
+  }
+
+  return chartData.map(series => {
+    // Create a mapping from option id/text to option object
+    const optionMap = new Map();
+    surveyQuestion.options.forEach((option: any) => {
+      optionMap.set(option.id, option);
+      if (option.text) {
+        optionMap.set(option.text, option);
+      }
+    });
+    
+    // Create array of data points with their associated options
+    const dataWithOptions = series.data.map(dataPoint => {
+      const option = optionMap.get(dataPoint.name);
+      return {
+        dataPoint,
+        option,
+        orderIndex: option?.order_index ?? 999 // Default to high value if no match
+      };
+    });
+    
+    // Sort by order_index
+    dataWithOptions.sort((a, b) => a.orderIndex - b.orderIndex);
+    
+    // Create a new sorted series with the same name but reordered data
+    return {
+      name: series.name,
+      data: dataWithOptions.map(item => item.dataPoint)
+    };
+  });
 };
 
 /** START OF INSIGHTS GENERATION */

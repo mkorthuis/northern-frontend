@@ -25,7 +25,6 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ chartTypeId, data, sortBy
       </Box>
     );
   }
-
   // Select the appropriate chart based on chart type ID
   switch (chartTypeId) {
     case ChartTypeId.BarChart:
