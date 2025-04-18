@@ -124,10 +124,8 @@ const SurveyResults: React.FC<SurveyResultsProps> = ({ survey }) => {
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-          Survey Results
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
+
+        <Typography variant="body1" color="textSecondary">
           Total Responses: {stats.totalResponses}
         </Typography>
       </Box>

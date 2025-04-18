@@ -22,7 +22,8 @@ import {
   DialogActions,
   DialogContent,
   DialogContentText,
-  DialogTitle
+  DialogTitle,
+  Grid
 } from '@mui/material';
 import { Survey } from '@/store/slices/surveySlice';
 import { getQuestionTypeById } from '@/constants/questionTypes';
@@ -203,32 +204,56 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({
           </Box>
         </Box>
         
-        <Divider sx={{ mb: 2 }} />
+        <Divider sx={{ mb: 1 }} />
         
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            Description
-          </Typography>
-          <Typography variant="body1">
-            {survey.description || "No description provided."}
-          </Typography>
-        </Box>
-        
-        {survey.date_created && (
-          <Box sx={{ mb: 3 }}>
+        {/* Three-column layout for Description, Created, and Survey Results */}
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' }, 
+        }}>
+          {/* Description Column */}
+          <Box sx={{ 
+            flex: 1, 
+            p: 2,
+            height: '100%'
+          }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Description
+            </Typography>
+            <Typography variant="body1">
+              {survey.description || "No description provided."}
+            </Typography>
+          </Box>
+          
+          {/* Created Column */}
+          <Box sx={{ 
+            flex: 1, 
+            p: 2,
+            height: '100%'
+          }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
               Created
             </Typography>
             <Typography variant="body1">
-              {new Date(survey.date_created).toLocaleDateString()}
+              {survey.date_created ? new Date(survey.date_created).toLocaleDateString() : "N/A"}
             </Typography>
           </Box>
-        )}
-
-        <SurveyResults survey={survey} loading={loading} />
+          
+          {/* Survey Results Column */}
+          <Box sx={{ 
+            flex: 1, 
+            p: 2,
+            height: '100%'
+          }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Survey Results
+            </Typography>
+            <SurveyResults survey={survey} loading={loading} />
+          </Box>
+        </Box>
         
         {/* Survey Analysis Section */}
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mt: 3, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
               Survey Analysis
