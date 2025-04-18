@@ -738,7 +738,9 @@ const EditSurveyAnalysis: React.FC = () => {
 
       // Navigate back after success
       setTimeout(() => {
-        navigate(surveyId ? `${PATHS.PUBLIC.SURVEYS_V2.path}/${surveyId}` : PATHS.PUBLIC.SURVEYS_V2.path);
+        navigate(surveyId && analysisId 
+          ? `${PATHS.PUBLIC.SURVEYS_V2_ANALYSIS_VIEW.path.replace(':surveyId', surveyId).replace(':analysisId', analysisId)}` 
+          : PATHS.PUBLIC.SURVEYS_V2.path);
       }, 1500);
     } catch (error) {
       console.error('Error updating survey analysis:', error);

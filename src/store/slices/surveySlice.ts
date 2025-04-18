@@ -298,6 +298,35 @@ export const deleteSurveyResponse = createAsyncThunk(
   }
 );
 
+export const deleteAllSurveyResponses = createAsyncThunk(
+  'survey/deleteAllSurveyResponses',
+  async (surveyId: string, { rejectWithValue, dispatch, getState }) => {
+    try {
+      // First get all responses for this survey
+      const responses = await surveyApi.getSurveyResponses(surveyId, false, true);
+      
+      // Track successfully deleted responses
+      let successCount = 0;
+      
+      // Delete each response
+      for (const response of responses) {
+        if (response.id) {
+          try {
+            await surveyApi.deleteSurveyResponse(response.id);
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to delete response ${response.id}:`, error);
+          }
+        }
+      }
+      
+      return { surveyId, totalDeleted: successCount };
+    } catch (error) {
+      return rejectWithValue(handleApiError(error, 'Failed to delete all survey responses'));
+    }
+  }
+);
+
 // Question management thunks
 export const addQuestion = createAsyncThunk(
   'survey/addQuestion',
@@ -654,6 +683,35 @@ export const surveySlice = createSlice({
         state.loadingStates.paginatedResponses = LoadingState.FAILED;
         state.loading = false;
         state.error = action.payload as string;
+      })
+
+      // Delete All Survey Responses
+      .addCase(deleteAllSurveyResponses.pending, (state) => {
+        state.loadingStates.deleteResponse = LoadingState.LOADING;
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteAllSurveyResponses.fulfilled, (state, action) => {
+        // Clear all responses for this survey
+        state.surveyResponses = state.surveyResponses.filter(response => 
+          response.survey_id !== action.payload.surveyId
+        );
+        // If current response belongs to this survey, clear it too
+        if (state.currentResponse && state.currentResponse.survey_id === action.payload.surveyId) {
+          state.currentResponse = null;
+        }
+        // Clear paginated responses if they're for this survey
+        if (state.paginatedResponses && state.paginatedResponses.items.length > 0 && 
+            state.paginatedResponses.items[0].survey_id === action.payload.surveyId) {
+          state.paginatedResponses = null;
+        }
+        state.loadingStates.deleteResponse = LoadingState.SUCCEEDED;
+        state.loading = false;
+      })
+      .addCase(deleteAllSurveyResponses.rejected, (state, action) => {
+        state.loadingStates.deleteResponse = LoadingState.FAILED;
+        state.loading = false;
+        state.error = action.payload as string;
       });
   },
 });
@@ -685,6 +743,7 @@ export const selectDeleteSurveyLoading = (state: RootState) => state.survey.load
 export const selectCreateResponseLoading = (state: RootState) => state.survey.loadingStates.createResponse;
 export const selectUpdateResponseLoading = (state: RootState) => state.survey.loadingStates.updateResponse;
 export const selectDeleteResponseLoading = (state: RootState) => state.survey.loadingStates.deleteResponse;
+export const selectDeleteAllResponsesLoading = (state: RootState) => state.survey.loadingStates.deleteResponse === LoadingState.LOADING;
 export const selectAddQuestionLoading = (state: RootState) => state.survey.loadingStates.addQuestion;
 export const selectUpdateQuestionLoading = (state: RootState) => state.survey.loadingStates.updateQuestion;
 export const selectDeleteQuestionLoading = (state: RootState) => state.survey.loadingStates.deleteQuestion;

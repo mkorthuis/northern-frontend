@@ -181,8 +181,13 @@ const ViewSurveyAnalysis: React.FC = () => {
   // Render loading state
   if (isLoading) {
     return (
-      <Container maxWidth="lg">
-        <Paper elevation={3} sx={{ p: 4, my: 4 }}>
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: 'calc(100vh)' 
+      }}>
+        <Paper elevation={3} sx={{ p: 4, my: 4, width: '100%' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="h4" component="h1" gutterBottom>
               View Survey Analysis

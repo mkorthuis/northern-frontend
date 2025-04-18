@@ -4,7 +4,7 @@ import {
   CircularProgress, TableContainer, Table,
   TableHead, TableRow, TableCell, TableBody,
   Chip, Alert,
-  Divider
+  Divider, LinearProgress
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -76,16 +76,37 @@ const SurveyList: React.FC = () => {
 
   if (isSurveysLoading) {
     return (
-      <Container sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-        <CircularProgress />
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: 'calc(100vh)' 
+      }}>
+        <Paper elevation={3} sx={{ p: 4, my: 4, width: '100%' }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Survey Management
+          </Typography>
+          <LinearProgress />
+          <Typography sx={{ mt: 2 }}>Loading surveys...</Typography>
+        </Paper>
       </Container>
     );
   }
 
   if (isSurveysFailed) {
     return (
-      <Container sx={{ mt: 4 }}>
-        <Alert severity="error">Error: {error}</Alert>
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: 'calc(100vh)' 
+      }}>
+        <Paper elevation={3} sx={{ p: 4, my: 4, width: '100%' }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Survey Management
+          </Typography>
+          <Alert severity="error">Error: {error}</Alert>
+        </Paper>
       </Container>
     );
   }
@@ -93,8 +114,18 @@ const SurveyList: React.FC = () => {
   // Only render content when loading state is SUCCEEDED
   if (!isSurveysSucceeded) {
     return (
-      <Container sx={{ mt: 4 }}>
-        <Alert severity="info">Waiting for data...</Alert>
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: 'calc(100vh)' 
+      }}>
+        <Paper elevation={3} sx={{ p: 4, my: 4, width: '100%' }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Survey Management
+          </Typography>
+          <Alert severity="info">Waiting for data...</Alert>
+        </Paper>
       </Container>
     );
   }
