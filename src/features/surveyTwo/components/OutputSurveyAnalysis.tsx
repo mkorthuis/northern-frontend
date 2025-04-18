@@ -127,8 +127,9 @@ const OutputSurveyAnalysis: React.FC = () => {
   const groupedQuestions = getGroupedAnalysisQuestions();
 
   return (
-    <Container maxWidth="lg">
+    <>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <img src="/images/owl.png" alt="Owl" style={{ height: '64px' }} />
           <Typography variant="h4" component="h1">
             {currentAnalysis.title} - Output
           </Typography>
@@ -145,7 +146,7 @@ const OutputSurveyAnalysis: React.FC = () => {
             groupedQuestions.map((group, groupIndex) => (
               <Box key={group.topicName} sx={{ mb: 5 }}>
                 {/* Topic heading */}
-                <Typography variant="h5" sx={{ mb: 2, borderBottom: '1px solid #eeeeee', pb: 1 }}>
+                <Typography variant="h5" sx={{ mb: 2, backgroundColor: 'primary.main', color: 'white', padding: '10px' }}>
                   {group.topicName}
                 </Typography>
                 
@@ -156,7 +157,7 @@ const OutputSurveyAnalysis: React.FC = () => {
                   
                   return (
                     <Box key={analysisQuestion.id} sx={{ mb: 6 }}>
-                      <Typography variant="h6" gutterBottom>
+                      <Typography variant="h6" gutterBottom sx={{borderBottom: '1px solid #cccccc', my: '30px'}}>
                         {analysisQuestion.question.title}
                       </Typography>
                       
@@ -199,7 +200,7 @@ const OutputSurveyAnalysis: React.FC = () => {
             ))
           )}
         </Box>
-    </Container>
+    </>
   );
 };
 

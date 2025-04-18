@@ -174,7 +174,12 @@ const SurveyList: React.FC = () => {
     <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Survey Management
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <img src="/images/owl.png" alt="Owl" style={{ height: '64px' }} />
+            <Typography variant="h4" component="span">
+              Survey Management
+            </Typography>
+          </Box>
         </Typography>
       </Box>
       

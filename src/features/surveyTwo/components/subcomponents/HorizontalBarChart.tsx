@@ -34,7 +34,7 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
     const sortedData = getSortedData(data[0].data, sortByValue);
     
     // Calculate dynamic height based on number of items
-    // Minimum height of 350px, and each item adds 50px (increased from 40px)
+    // Minimum height of 350px, and each item adds 50px
     const dynamicHeight = Math.max(height, Math.min(1200, 150 + sortedData.length * 50));
     
     return (
@@ -55,12 +55,15 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
           <Tooltip />
           <Bar 
             dataKey="value" 
-            fill="#8884d8"
+            fill={CHART_COLORS[0]} // Use first color from our updated palette
             barSize={20}
             name={data[0].name}
           >
             {sortedData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+              <Cell 
+                key={`cell-${index}`} 
+                fill={CHART_COLORS[index % CHART_COLORS.length]}
+              />
             ))}
           </Bar>
         </RechartsBarChart>
@@ -72,8 +75,7 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
   const consolidatedData = getConsolidatedData(data, sortByValue);
   
   // Calculate dynamic height based on number of categories
-  // Minimum height of 350px, and each category adds 50px (increased from 40px)
-  // Also increased the max height from 1000px to 1200px
+  // Minimum height of 350px, and each category adds 50px
   const dynamicHeight = Math.max(height, Math.min(1200, 150 + consolidatedData.length * 50));
   
   return (

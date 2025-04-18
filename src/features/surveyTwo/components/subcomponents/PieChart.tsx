@@ -40,7 +40,7 @@ const PieChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
             cx="50%"
             cy="50%"
             outerRadius={100}
-            fill="#8884d8"
+            fill={CHART_COLORS[0]}
             label={(entry) => {
               // Truncate long labels to prevent overcrowding
               const name = typeof entry.name === 'string' ? entry.name : String(entry.name);
@@ -83,7 +83,7 @@ const PieChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
                     cx="50%"
                     cy="50%"
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill={CHART_COLORS[0]}
                     label={(entry) => {
                       // Truncate long labels
                       const name = typeof entry.name === 'string' ? entry.name : String(entry.name);

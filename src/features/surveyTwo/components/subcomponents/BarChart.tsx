@@ -45,7 +45,7 @@ const BarChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
           />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="value" fill="#8884d8" name={data[0].name} />
+          <Bar dataKey="value" fill={CHART_COLORS[0]} name={data[0].name} />
         </RechartsBarChart>
       </ResponsiveContainer>
     );

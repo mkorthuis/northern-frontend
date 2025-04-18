@@ -183,9 +183,11 @@ const ViewSurveyAnalysis: React.FC = () => {
     return (
       <Container maxWidth="lg">
         <Paper elevation={3} sx={{ p: 4, my: 4 }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            View Survey Analysis
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h4" component="h1" gutterBottom>
+              View Survey Analysis
+            </Typography>
+          </Box>
           <LinearProgress />
           <Typography sx={{ mt: 2 }}>Loading analysis data...</Typography>
         </Paper>
@@ -218,9 +220,10 @@ const ViewSurveyAnalysis: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="lg">
+    <>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1">
+          <img src="/images/owl.png" alt="Owl" style={{ height: '64px' }} />
+          <Typography variant="h4" component="h1" sx={{ paddingLeft: '16px', marginRight: 'auto' }}>
             {currentAnalysis.title}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
@@ -441,7 +444,7 @@ const ViewSurveyAnalysis: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </>
   );
 };
 
