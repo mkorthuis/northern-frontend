@@ -50,6 +50,7 @@ interface QuestionSettings {
   chartTypeId: number;
   sortByValue: boolean;
   topicIds: string[];
+  isDemographic: boolean;
 }
 
 const CreateSurveyAnalysis: React.FC = () => {
@@ -143,7 +144,8 @@ const CreateSurveyAnalysis: React.FC = () => {
         newSettings.set(questionId, { 
           chartTypeId: defaultChartTypeId, 
           sortByValue: false,
-          topicIds: [] // Initialize with empty topics array
+          topicIds: [], // Initialize with empty topics array
+          isDemographic: false // Initialize with default value
         });
         setQuestionSettings(newSettings);
         
@@ -159,7 +161,7 @@ const CreateSurveyAnalysis: React.FC = () => {
   const handleChartTypeChange = (questionId: string, chartTypeId: number) => {
     setQuestionSettings(prev => {
       const newSettings = new Map(prev);
-      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [] };
+      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [], isDemographic: false };
       newSettings.set(questionId, { ...current, chartTypeId });
       return newSettings;
     });
@@ -169,7 +171,7 @@ const CreateSurveyAnalysis: React.FC = () => {
   const handleSortByValueChange = (questionId: string, sortByValue: boolean) => {
     setQuestionSettings(prev => {
       const newSettings = new Map(prev);
-      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [] };
+      const current = newSettings.get(questionId) || { chartTypeId: 1, sortByValue: false, topicIds: [], isDemographic: false };
       newSettings.set(questionId, { ...current, sortByValue });
       return newSettings;
     });
@@ -182,9 +184,25 @@ const CreateSurveyAnalysis: React.FC = () => {
       const current = newSettings.get(questionId) || { 
         chartTypeId: chartTypes[0]?.id || 1, 
         sortByValue: false,
-        topicIds: []
+        topicIds: [],
+        isDemographic: false
       };
       newSettings.set(questionId, { ...current, topicIds });
+      return newSettings;
+    });
+  };
+
+  // Add handler for demographic toggle
+  const handleDemographicChange = (questionId: string, isDemographic: boolean) => {
+    setQuestionSettings(prev => {
+      const newSettings = new Map(prev);
+      const current = newSettings.get(questionId) || { 
+        chartTypeId: chartTypes[0]?.id || 1, 
+        sortByValue: false,
+        topicIds: [],
+        isDemographic: false
+      };
+      newSettings.set(questionId, { ...current, isDemographic });
       return newSettings;
     });
   };
@@ -234,7 +252,8 @@ const CreateSurveyAnalysis: React.FC = () => {
           const settings = questionSettings.get(questionId) || { 
             chartTypeId: 1, 
             sortByValue: false,
-            topicIds: []
+            topicIds: [],
+            isDemographic: false
           };
           
           await dispatch(createSurveyAnalysisQuestion({
@@ -242,6 +261,7 @@ const CreateSurveyAnalysis: React.FC = () => {
             question_id: questionId,
             chart_type_id: settings.chartTypeId,
             sort_by_value: settings.sortByValue,
+            is_demographic: settings.isDemographic,
             topic_ids: settings.topicIds.length > 0 ? settings.topicIds : null,
             report_segment_ids: null
           }));
@@ -399,7 +419,7 @@ const CreateSurveyAnalysis: React.FC = () => {
                 {sortedQuestions.map((question) => {
                   const questionId = question.id as string;
                   const isSelected = selectedQuestions.includes(questionId);
-                  const settings = questionSettings.get(questionId) || { chartTypeId: chartTypes[0]?.id || 1, sortByValue: false, topicIds: [] };
+                  const settings = questionSettings.get(questionId) || { chartTypeId: chartTypes[0]?.id || 1, sortByValue: false, topicIds: [], isDemographic: false };
                   
                   return (
                     <React.Fragment key={questionId}>
@@ -458,7 +478,7 @@ const CreateSurveyAnalysis: React.FC = () => {
                               <InputLabel>Topics</InputLabel>
                               <Select
                                 multiple
-                                value={settings.topicIds || []}
+                                value={settings.topicIds}
                                 onChange={(e) => handleTopicChange(questionId, e.target.value as string[])}
                                 input={<OutlinedInput label="Topics" />}
                                 disabled={isSubmitting || topicsLoading}
@@ -489,6 +509,19 @@ const CreateSurveyAnalysis: React.FC = () => {
                                 )}
                               </Select>
                               <FormHelperText>Assign topics to this question</FormHelperText>
+                            </FormControl>
+
+                            <FormControl sx={{ minWidth: 200, display: 'flex', flexDirection: 'row', alignItems: 'center' }} size="small">
+                              <Checkbox
+                                checked={settings.isDemographic}
+                                onChange={(e) => handleDemographicChange(questionId, e.target.checked)}
+                                disabled={isSubmitting}
+                                sx={{ mr: 1 }}
+                              />
+                              <Box>
+                                <Typography variant="body2">Demographic Question</Typography>
+                                <FormHelperText sx={{ ml: 0, pl: 0 }}>Can be used for filtering and segmentation</FormHelperText>
+                              </Box>
                             </FormControl>
                           </Box>
                         </Box>

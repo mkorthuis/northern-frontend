@@ -58,12 +58,7 @@ interface AnalysisFormData {
   analysisQuestionId: string;
 }
 
-/**
- * Interface for managing multiple filter criteria values.
- * This replaces the previous single filter value approach,
- * allowing users to add, edit, and remove multiple filter
- * values for more flexible filtering.
- */
+// Interface for filter criteria management
 interface FilterCriteriaState {
   values: string[];
   newValue: string;
