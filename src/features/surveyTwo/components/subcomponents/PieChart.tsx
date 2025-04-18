@@ -5,11 +5,47 @@ import {
   Cell,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  TooltipProps
 } from 'recharts';
 import { Box, Typography } from '@mui/material';
 import { BaseChartProps, getSortedData } from './ChartTypes';
 import { CHART_COLORS } from './ChartColors';
+
+// Custom tooltip component to display percentage values
+const CustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    return (
+      <Box
+        sx={{
+          backgroundColor: 'white',
+          padding: '10px',
+          border: '1px solid #ccc',
+          borderRadius: '4px',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.15)'
+        }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+          {payload[0]?.name}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box
+            sx={{
+              width: 10,
+              height: 10,
+              backgroundColor: payload[0]?.color,
+              mr: 1
+            }}
+          />
+          <Typography variant="body2">
+            {payload[0]?.value !== undefined ? payload[0]?.value.toFixed(1) : '0.0'}%
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
+  return null;
+};
 
 /**
  * PieChart component for visualizing data as pie segments
@@ -26,6 +62,18 @@ const PieChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
     );
   }
 
+  // Custom label formatter for pie slices
+  const renderCustomizedLabel = (entry: any) => {
+    // Don't show labels for very small slices (less than 5%)
+    if (entry.value < 5) return null;
+    
+    // Truncate long labels to prevent overcrowding
+    const name = typeof entry.name === 'string' ? entry.name : String(entry.name);
+    const displayName = name.length > 20 ? name.substring(0, 17) + '...' : name;
+    
+    return `${displayName}: ${entry.value.toFixed(1)}%`;
+  };
+
   // Handle single data series
   if (data.length === 1) {
     const sortedData = getSortedData(data[0].data, sortByValue);
@@ -41,18 +89,15 @@ const PieChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
             cy="50%"
             outerRadius={100}
             fill={CHART_COLORS[0]}
-            label={(entry) => {
-              // Truncate long labels to prevent overcrowding
-              const name = typeof entry.name === 'string' ? entry.name : String(entry.name);
-              return name.length > 20 ? name.substring(0, 17) + '...' : name;
-            }}
+            label={renderCustomizedLabel}
+            labelLine={true}
           >
             {sortedData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
             ))}
           </Pie>
-          <Tooltip />
-          <Legend wrapperStyle={{ overflowY: 'auto', maxHeight: 100 }} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend wrapperStyle={{ overflowY: 'auto', maxHeight: 100 }} formatter={(value, entry) => `${value}`} />
         </RechartsPieChart>
       </ResponsiveContainer>
     );
@@ -84,17 +129,14 @@ const PieChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
                     cy="50%"
                     outerRadius={80}
                     fill={CHART_COLORS[0]}
-                    label={(entry) => {
-                      // Truncate long labels
-                      const name = typeof entry.name === 'string' ? entry.name : String(entry.name);
-                      return name.length > 15 ? name.substring(0, 12) + '...' : name;
-                    }}
+                    label={renderCustomizedLabel}
+                    labelLine={true}
                   >
                     {seriesData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip content={<CustomTooltip />} />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </Box>

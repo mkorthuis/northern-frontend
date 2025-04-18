@@ -19,6 +19,7 @@ import useSurveyTwo from '../hooks/useSurveyTwo';
 import { PATHS } from '@/routes/paths';
 import AddQuestionForm from './AddQuestionForm';
 import QuestionTopicsManager from './QuestionTopicsManager';
+import ReportSegmentManager from './ReportSegmentManager';
 import { Survey, SurveyQuestion } from '@/store/slices/surveySlice';
 import { getQuestionTypeById, QUESTION_TYPES } from '@/constants/questionTypes';
 
@@ -32,7 +33,7 @@ interface ExtendedSurveyQuestion extends Omit<SurveyQuestion, 'type_id'> {
 const CreateSurvey: React.FC = () => {
   // Step handling
   const [activeStep, setActiveStep] = useState(0);
-  const steps = ['Survey Details', 'Add Questions', 'Manage Topics'];
+  const steps = ['Survey Details', 'Add Questions', 'Manage Topics', 'Report Segments'];
 
   // Survey details form state
   const [title, setTitle] = useState('');
@@ -413,12 +414,56 @@ const CreateSurvey: React.FC = () => {
           </Button>
           
           <Button 
+            onClick={() => setActiveStep(3)} 
+            variant="contained" 
+            color="primary"
+            disabled={isAnyLoading}
+          >
+            Continue to Report Segments
+          </Button>
+        </Box>
+      </Box>
+    );
+  };
+
+  // Render the report segments management step (step 4)
+  const renderReportSegmentsStep = () => {
+    return (
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Manage Report Segments
+        </Typography>
+        
+        <Typography variant="body2" paragraph>
+          Report segments allow you to organize your analysis questions into logical sections when creating reports. Each segment creates a separate section in your reports.
+        </Typography>
+        
+        {currentSurvey?.id ? (
+          <ReportSegmentManager surveyId={currentSurvey.id} />
+        ) : (
+          <Alert severity="warning" sx={{ mb: 3 }}>
+            You need to create a survey before adding report segments.
+          </Alert>
+        )}
+
+        <Divider sx={{ my: 3 }} />
+        
+        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+          <Button 
+            onClick={() => setActiveStep(2)} 
+            variant="outlined"
+            disabled={isAnyLoading}
+          >
+            Back to Topics
+          </Button>
+          
+          <Button 
             onClick={handleFinish} 
             variant="contained" 
             color="primary"
             disabled={isAnyLoading}
           >
-            Finish
+            Save & Finish
           </Button>
         </Box>
       </Box>
@@ -443,6 +488,7 @@ const CreateSurvey: React.FC = () => {
         {activeStep === 0 && renderSurveyDetailsForm()}
         {activeStep === 1 && renderQuestionsStep()}
         {activeStep === 2 && renderTopicsStep()}
+        {activeStep === 3 && renderReportSegmentsStep()}
       </Paper>
       
       <Snackbar 

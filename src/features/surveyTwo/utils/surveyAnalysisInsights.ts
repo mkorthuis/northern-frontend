@@ -27,12 +27,22 @@ export interface InsightDataGroup {
  * @returns ChartDataSeries object
  */
 export const createDataSeries = (name: string, valueCountMap: Map<string, number>): ChartDataSeries => {
+  // Calculate total count for percentage calculation
+  const totalCount = Array.from(valueCountMap.values()).reduce((sum, count) => sum + count, 0);
+  
   return {
     name,
-    data: Array.from(valueCountMap.entries()).map(([name, value]) => ({
-      name,
-      value
-    }))
+    data: Array.from(valueCountMap.entries()).map(([name, value]) => {
+      // Calculate percentage (rounded to one decimal place)
+      const percentage = totalCount > 0 ? Math.round((value / totalCount) * 1000) / 10 : 0;
+      
+      return {
+        name,
+        value: percentage,
+        rawCount: value, // Keep the raw count for reference/tooltips
+        totalCount // Store total count for reference
+      };
+    })
   };
 };
 

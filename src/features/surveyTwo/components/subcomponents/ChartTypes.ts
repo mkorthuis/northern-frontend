@@ -5,7 +5,9 @@
  */
 export interface ChartDataPoint {
   name: string;
-  value: number;
+  value: number; // Percentage value (0-100)
+  rawCount?: number; // Original count value
+  totalCount?: number; // Total count for the series
 }
 
 /**
@@ -64,26 +66,37 @@ export const getConsolidatedData = (dataSeries: ChartDataSeries[], sortByValue: 
   // Create a consolidated data structure for charts
   const consolidatedData = Array.from(allCategories).map(category => {
     const item: any = { name: category };
+    
+    // Add value, rawCount, and totalCount for each series
     dataSeries.forEach(series => {
       const match = series.data.find(d => d.name === category);
-      item[series.name] = match ? match.value : 0;
+      if (match) {
+        item[series.name] = match.value; // Already a percentage
+        item[`${series.name}_rawCount`] = match.rawCount || 0;
+        item[`${series.name}_totalCount`] = match.totalCount || 0;
+      } else {
+        item[series.name] = 0;
+        item[`${series.name}_rawCount`] = 0;
+        item[`${series.name}_totalCount`] = 0;
+      }
     });
+    
     return item;
   });
   
   // Sort the consolidated data if needed
   if (sortByValue) {
     return [...consolidatedData].sort((a, b) => {
-      // Calculate total values for each category
-      const totalA = dataSeries.reduce((sum, series) => {
-        const match = series.data.find(d => d.name === a.name);
-        return sum + (match ? match.value : 0);
+      // Calculate total values for each category (using percentages)
+      const totalPercentA = dataSeries.reduce((sum, series) => {
+        return sum + (a[series.name] || 0);
       }, 0);
-      const totalB = dataSeries.reduce((sum, series) => {
-        const match = series.data.find(d => d.name === b.name);
-        return sum + (match ? match.value : 0);
+      
+      const totalPercentB = dataSeries.reduce((sum, series) => {
+        return sum + (b[series.name] || 0);
       }, 0);
-      return totalB - totalA;
+      
+      return totalPercentB - totalPercentA;
     });
   }
   
