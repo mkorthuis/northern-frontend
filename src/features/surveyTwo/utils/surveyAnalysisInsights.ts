@@ -292,6 +292,9 @@ export const fetchInsightData = (
   return result;
 };
 
+/** START OF INSIGHTS GENERATION */
+
+
 /**
  * Generate insights for a question based on its properties
  * @param analysisQuestion The analysis question to generate insights for
@@ -308,11 +311,270 @@ export const getInsights = (
   
   // Fetch detailed data for insights
   const insightDataGroup = fetchInsightData(analysisQuestion, paginatedResponses, currentAnalysis);
-
+  // Generate insights based on whether we have filters or not
   if (insightDataGroup.hasFilters) {
+    generateFilteredInsights(insightDataGroup, insights);
+  } else {
+    const insightData = insightDataGroup.allResponses.chartData[0].data;
+    generateNonFilteredInsights(insightData, insights);
+  }
+  
+  return insights;
+}; 
+
+/**
+ * Generate filter-specific insights
+ * @param insightDataGroup The data group containing filtered and unfiltered data
+ * @param insights Array to add insights to
+ */
+const generateFilteredInsights = (
+    insightDataGroup: InsightDataGroup,
+    insights: string[]
+  ) => {
     const insightData = insightDataGroup.filteredResponses;
-    // Create a new combined data array that is the sum of all the values in chartData[0].data from each filtered response.
-    // First, create a map to track combined values by name
+    
+    // Skip if no filtered data available
+    if (!insightData || insightData.length === 0) {
+      return;
+    }
+    
+    // Prepare data for analysis
+    const {answersByFilter, mostCommonByFilter, filterValues } = prepareFilterAnalysisData(insightData);
+    console.log(answersByFilter);
+    
+    // Add insights about most common responses across filters
+    addCommonResponseInsights(mostCommonByFilter, filterValues, insights);
+    
+    // Add insights about biggest differences between filters
+    addBiggestDifferenceInsights(answersByFilter, insights);
+    
+    // Add insight about whether variations are significant
+    addVariationSignificanceInsight(answersByFilter, filterValues, insights);
+
+    // Add insights about value ranges within each filter
+    //addValueRangeInsights(insightData, insights);
+    
+    // Add insights about combined data across all filters
+    //addCombinedDataInsights(insightData, insights);
+  };
+
+
+/**
+ * Prepare data structures for filter analysis
+ * @param insightData Array of filtered insight data
+ * @returns Object containing analysis structures
+ */
+const prepareFilterAnalysisData = (insightData: InsightData[]) => {
+    // Create a map structure to store answer data by filter
+    // { answerName: { filterName: { value: number, percentage: number } } }
+    const answersByFilter: { [key: string]: { [key: string]: { value: number, percentage: number } } } = {};
+  
+    // Find the most common response for each filter
+    const mostCommonByFilter: { [key: string]: { answer: string, value: number } } = {};
+    
+    // Track total responses for each filter to calculate percentages
+    const totalResponsesByFilter: { [key: string]: number } = {};
+    
+    // Process each filter response to collect data and calculate totals
+    insightData.forEach(response => {
+      if (response.chartData[0]?.data && response.filterValue) {
+        // Get the data for this filter
+        const data = response.chartData[0].data;
+        
+        // Calculate total responses for this filter
+        const filterTotal = data.reduce((sum, dataPoint) => sum + dataPoint.value, 0);
+        totalResponsesByFilter[response.filterValue] = filterTotal;
+        
+        // Sort data points by value for this filter
+        const sortedData = [...data].sort((a, b) => b.value - a.value);
+        
+        // Record most common answer for this filter
+        if (sortedData[0]) {
+          mostCommonByFilter[response.filterValue] = {
+            answer: sortedData[0].name,
+            value: sortedData[0].value
+          };
+        }
+        
+        // Populate the answers by filter map with initial values
+        data.forEach(dataPoint => {
+          // Initialize answer entry if it doesn't exist
+          if (!answersByFilter[dataPoint.name]) {
+            answersByFilter[dataPoint.name] = {};
+          }
+          
+          // Add filter data for this answer
+          if (response.filterValue) {
+            answersByFilter[dataPoint.name][response.filterValue] = {
+              value: dataPoint.value,
+              percentage: 0 // Will calculate after collecting all data
+            };
+          }
+        });
+      }
+    });
+    
+    // Calculate percentages now that we have all the totals
+    Object.entries(answersByFilter).forEach(([answer, filterValues]) => {
+      Object.entries(filterValues).forEach(([filterName, data]) => {
+        const filterTotal = totalResponsesByFilter[filterName];
+        // Calculate percentage (avoid division by zero)
+        if (filterTotal > 0) {
+          data.percentage = Math.round((data.value / filterTotal) * 100);
+        } else {
+          data.percentage = 0;
+        }
+      });
+    });
+    
+    return {
+      answersByFilter,
+      mostCommonByFilter,
+      filterValues: Object.keys(mostCommonByFilter)
+    };
+  };
+  
+  /**
+   * Add insights about most common responses across filters
+   * @param mostCommonByFilter Map of most common answer for each filter
+   * @param filterValues Array of filter value names
+   * @param insights Array to add insights to
+   */
+  const addCommonResponseInsights = (
+    mostCommonByFilter: { [key: string]: { answer: string, value: number } },
+    filterValues: string[],
+    insights: string[]
+  ) => {
+    if (filterValues.length <= 0) return;
+    
+    if (filterValues.length === 1) {
+      // Just one filter, simple case
+      const filter = filterValues[0];
+      insights.push(
+        `The most common response for "${filter}" is "${mostCommonByFilter[filter].answer}" with ${mostCommonByFilter[filter].value} responses`
+      );
+      return;
+    }
+    
+    // Multiple filters - check if they all have the same most common answer
+    const firstAnswer = mostCommonByFilter[filterValues[0]].answer;
+    const allSame = filterValues.every(filter => 
+      mostCommonByFilter[filter].answer === firstAnswer
+    );
+  
+    if (allSame) {
+      insights.push(
+        `"${firstAnswer}" is the most common response across all filters`
+      );
+    } else {
+      const differences = filterValues.map(filter => 
+        `"${mostCommonByFilter[filter].answer}" (${mostCommonByFilter[filter].value} responses) for "${filter}"`
+      );
+      insights.push(
+        `Most common responses differ by filter: ${differences.join('; ')}`
+      );
+    }
+  };
+
+
+  /**
+   * Add insights about the biggest differences between filters for each answer
+   * @param answersByFilter Map of answers with their values for each filter
+   * @param insights Array to add insights to
+   */
+  const addBiggestDifferenceInsights = (
+    answersByFilter: { [key: string]: { [key: string]: { value: number, percentage: number } } },
+    insights: string[]
+  ) => {
+    // Find the biggest percentage difference between filters for each answer
+    let maxPercentageDifference = 0;
+    let maxDiffAnswer = '';
+    let maxDiffFilters: string[] = [];
+    let maxDiffValues: number[] = []; // Store actual percentages for reporting
+
+    // Iterate through each answer
+    Object.entries(answersByFilter).forEach(([answer, filterValues]) => {
+      const filterEntries = Object.entries(filterValues);
+      
+      // Compare each pair of filters for this answer
+      for (let i = 0; i < filterEntries.length; i++) {
+        for (let j = i + 1; j < filterEntries.length; j++) {
+          const [filter1, data1] = filterEntries[i];
+          const [filter2, data2] = filterEntries[j];
+          
+          // Use percentage instead of absolute value
+          const percentageDifference = Math.abs(data1.percentage - data2.percentage);
+          
+          if (percentageDifference > maxPercentageDifference) {
+            maxPercentageDifference = percentageDifference;
+            maxDiffAnswer = answer;
+            maxDiffFilters = [filter1, filter2];
+            maxDiffValues = [data1.percentage, data2.percentage];
+          }
+        }
+      }
+    });
+
+    // Add insight about the biggest difference if found
+    if (maxPercentageDifference > 0) {
+      insights.push(
+        `The answer "${maxDiffAnswer}" shows the biggest variation between filters, ` +
+        `with a difference of ${maxPercentageDifference} percentage points (${maxDiffValues[0]}% vs ${maxDiffValues[1]}%) ` +
+        `between "${maxDiffFilters[0]}" and "${maxDiffFilters[1]}"`
+      );
+    }
+  };
+
+  
+  /**
+   * Add insights about value ranges within each filter
+   * @param insightData Array of filtered insight data
+   * @param insights Array to add insights to
+   */
+  const addValueRangeInsights = (
+    insightData: InsightData[],
+    insights: string[]
+  ) => {
+    insightData.forEach(response => {
+      if (response.chartData[0]?.data && response.filterValue) {
+        const data = response.chartData[0].data;
+        if (data.length >= 2) {
+          // Find largest difference between most and least common
+          const sortedData = [...data].sort((a, b) => b.value - a.value);
+          const largestDiff = sortedData[0].value - sortedData[sortedData.length - 1].value;
+          
+          // Only add this insight if we have a meaningful difference
+          if (largestDiff > 0) {
+            insights.push(
+              `For "${response.filterValue}", the difference between the most common answer "${sortedData[0].name}" (${sortedData[0].value} responses) and least common "${sortedData[sortedData.length-1].name}" (${sortedData[sortedData.length-1].value} responses) is ${largestDiff} responses`
+            );
+          }
+          
+          // Check if all answers are within 10% of each other
+          const maxValue = Math.max(...data.map(d => d.value));
+          const minValue = Math.min(...data.map(d => d.value));
+          const threshold = maxValue * 0.1; // 10% of max value
+          
+          if (maxValue - minValue <= threshold && data.length > 2) {
+            insights.push(
+              `For "${response.filterValue}", all answers are within 10% of each other (range: ${minValue}-${maxValue} responses)`
+            );
+          }
+        }
+      }
+    });
+  };
+  
+  /**
+   * Add insights about combined data across all filters
+   * @param insightData Array of filtered insight data
+   * @param insights Array to add insights to
+   */
+  const addCombinedDataInsights = (
+    insightData: InsightData[],
+    insights: string[]
+  ) => {
+    // Create a map to combine values with the same name
     const combinedMap = new Map<string, number>();
     
     // Iterate through all filtered responses and aggregate values by name
@@ -329,174 +591,138 @@ export const getInsights = (
     const combinedData: ChartDataPoint[] = Array.from(combinedMap.entries())
       .map(([name, value]) => ({ name, value }));
     
-    // 1. Identify the most common response from each filteredResponse
-    const mostCommonByFilter: Array<{filterName: string, filterValue: string, mostCommonResponse: ChartDataPoint}> = [];
-    
-    insightData.forEach(filterResponse => {
-      if (filterResponse.chartData[0] && filterResponse.chartData[0].data && filterResponse.chartData[0].data.length > 0) {
-        // Sort data to find the most common response for this filter
-        const sortedData = [...filterResponse.chartData[0].data].sort((a, b) => b.value - a.value);
-        const mostCommon = sortedData[0];
-        
-        mostCommonByFilter.push({
-          filterName: filterResponse.filterName || 'Filter',
-          filterValue: filterResponse.filterValue || 'Unknown',
-          mostCommonResponse: mostCommon
-        });
-      }
-    });
-    
-    // 2 & 3. Compare the most common responses and add appropriate insights
-    if (mostCommonByFilter.length > 0) {
-      // Check if all filters have the same most common response
-      const firstMostCommonName = mostCommonByFilter[0].mostCommonResponse.name;
-      const allSameMostCommon = mostCommonByFilter.every(item => 
-        item.mostCommonResponse.name === firstMostCommonName
-      );
-      
-      if (allSameMostCommon) {
-        // If they are the same name, push a single insight
-        insights.push(`The most common response across all filters is "${firstMostCommonName}"`);
-      } else {
-        // If they are different, push an insight for each filter
-        mostCommonByFilter.forEach(item => {
-          insights.push(
-            `The most common response for "${item.filterValue}" is ` + 
-            `"${item.mostCommonResponse.name}" (${item.mostCommonResponse.value} responses)`
-          );
-        });
-      }
-    }
-    
-    // Identify the most common response across all filters (combined data)
+    // Add insight about the most common response overall
     if (combinedData.length > 0) {
       const sortedCombinedData = [...combinedData].sort((a, b) => b.value - a.value);
       const mostCommonOverall = sortedCombinedData[0];
       
       insights.push(`Most common response overall: "${mostCommonOverall.name}" (${mostCommonOverall.value} total responses)`);
-    }
-  } else {
-    const insightData = insightDataGroup.allResponses.chartData[0].data;
-    if (insightData.length > 0) {
-      // Keep this conditional logic for sorting by value.  It will be used later to display different insights.
-      if(analysisQuestion.sort_by_value) {
-        //looking at allResponses.chartData[0].data.  Identify the highest value. Push the name and value of that data point to the insights array.
-        const highestValue = insightData.reduce((max, current) => {
-          return current.value > max.value ? current : max;
-        }, insightData[0]);
-        
-        insights.push(`The most common response is "${highestValue.name}" with ${highestValue.value} responses`);
-        
-        //Compare the highest value to the next highest value.  Deliver a message about how close the values are.
-        if (insightData.length > 1) {
-          // Sort data points by value in descending order to find the second highest
-          const sortedData = [...insightData].sort((a, b) => b.value - a.value);
-          const secondHighestValue = sortedData[1]; // Second element is the second highest
-          const valueDifference = highestValue.value - secondHighestValue.value;
-          
-          insights.push(`The difference between the most common response and the second most common response is ${valueDifference}`);
-        }
-
-        //Identify the least common value.  Push the name and value of that data point to the insights array.
-        const leastCommonValue = insightData.reduce((min, current) => {
-          return current.value < min.value ? current : min;
-        }, insightData[0]);
-        
-        insights.push(`The least common response is "${leastCommonValue.name}" with ${leastCommonValue.value} responses`);
-        
-        //If the first and last results are close in value, include an additional insight about that.
-        if(highestValue.value - leastCommonValue.value < 10) {
-          insights.push("The results are very close in value");
-        }
-      } else {
-        //looking at allResponses.chartData[0].data.  Identify the highest value. Push the name and value of that data point to the insights array.
-        const highestValue = insightData.reduce((max, current) => {
-          return current.value > max.value ? current : max;
-        }, insightData[0]);
-        
-        insights.push(`The most common response is "${highestValue.name}" with ${highestValue.value} responses`);
-        
-        //Compare the highest value to the next highest value.  Deliver a message about how close the values are.
-        if (insightData.length > 1) {
-          // Sort data points by value in descending order to find the second highest
-          const sortedData = [...insightData].sort((a, b) => b.value - a.value);
-          const secondHighestValue = sortedData[1]; // Second element is the second highest
-          const valueDifference = highestValue.value - secondHighestValue.value;
-          
-          insights.push(`The difference between the most common response and the second most common response is ${valueDifference}`);
-        }
-
-        //Identify the least common value.  Push the name and value of that data point to the insights array.
-        const leastCommonValue = insightData.reduce((min, current) => {
-          return current.value < min.value ? current : min;
-        }, insightData[0]);
-        
-        insights.push(`The least common response is "${leastCommonValue.name}" with ${leastCommonValue.value} responses`);
-        
-        //If the first and last results are close in value, include an additional insight about that.
-        if(highestValue.value - leastCommonValue.value < 10) {
-          insights.push("The results are very close in value");
-        }
+      
+      // If we have at least 3 data points, add insight about top 3
+      if (sortedCombinedData.length >= 3) {
+        const top3 = sortedCombinedData.slice(0, 3);
+        const top3Text = top3.map(item => `"${item.name}" (${item.value})`).join(', ');
+        insights.push(`Top 3 responses across all filters: ${top3Text}`);
       }
     }
+  };
+
+/**
+ * Add insight about whether there is significant variation (>10%) between groups
+ * @param answersByFilter Map of answers with their values for each filter
+ * @param filterValues Array of filter value names 
+ * @param insights Array to add insights to
+ */
+const addVariationSignificanceInsight = (
+  answersByFilter: { [key: string]: { [key: string]: { value: number, percentage: number } } },
+  filterValues: string[],
+  insights: string[]
+) => {
+  // Skip if we have fewer than 2 filters
+  if (filterValues.length < 2) {
+    return;
   }
 
-  const insightData = insightDataGroup.hasFilters && insightDataGroup.filteredResponses.length > 0 
-    ? insightDataGroup.filteredResponses[0] // Use the first filtered data if filters are applied
-    : insightDataGroup.allResponses; // Otherwise use all responses
-  
-  // Add insight about sort order
-  if (analysisQuestion.sort_by_value) {
-    insights.push("Results are sorted by value (highest to lowest)");
-  } else {
-    insights.push("Results are displayed in original order (not sorted by value)");
-  }
-  
-  // Add insight about chart type
-  switch(analysisQuestion.chart_type_id) {
-    case 1:
-      insights.push("Vertical bar chart is used for easy comparison of values");
-      break;
-    case 2:
-      insights.push("Pie chart is used to show proportion of each value to the whole");
-      break;
-    case 3:
-      insights.push("Horizontal bar chart is used for better readability with many categories");
-      break;
-    default:
-      insights.push("Custom chart type is being used");
-  }
-  
-  // Add insight about response data
-  insights.push(`This question received ${insightData.responseCount} responses with ${insightData.uniqueValues} unique values`);
-  
-  // Add insight about question type if available
-  if (insightData.questionType && insightData.questionType !== 'Unknown') {
-    insights.push(`Question type: ${insightData.questionType}`);
-  }
-  
-  // If filters are applied, add information about the filter
-  if (insightDataGroup.hasFilters && insightData.filterName && insightData.filterValue) {
-    insights.push(`Filtered by ${insightData.filterName}: "${insightData.filterValue}"`);
+  // Flag to track if we found any significant variation
+  let hasSignificantVariation = false;
+
+  // For each answer, check if there's significant variation between filter groups
+  Object.entries(answersByFilter).forEach(([answer, filterValues]) => {
+    const filterEntries = Object.entries(filterValues);
     
-    // Add comparison with all responses if significant difference
-    const allResponsesCount = insightDataGroup.allResponses.responseCount;
-    const percentOfTotal = Math.round((insightData.responseCount / allResponsesCount) * 100);
-    insights.push(`This filter represents ${percentOfTotal}% of all responses (${insightData.responseCount} out of ${allResponsesCount})`);
-  }
-  
-  // Add information about the most common response if available
-  if (insightData.chartData.length > 0 && insightData.chartData[0].data.length > 0) {
-    // Find the most common response across all series
-    const allDataPoints = insightData.chartData.flatMap(series => series.data);
-    if (allDataPoints.length > 0) {
-      const sortedByFrequency = [...allDataPoints].sort((a, b) => b.value - a.value);
-      const mostCommon = sortedByFrequency[0];
-      if (mostCommon) {
-        insights.push(`Most common response: "${mostCommon.name}" (${mostCommon.value} responses)`);
+    // Get all percentages for this answer across filters
+    const percentages = filterEntries.map(([_, data]) => data.percentage);
+    
+    // If we have at least one value
+    if (percentages.length > 0) {
+      // Calculate the absolute percentage point difference threshold for significance (10 percentage points)
+      const significanceThreshold = 10;
+      
+      // Compare each pair of filters for this answer
+      for (let i = 0; i < filterEntries.length && !hasSignificantVariation; i++) {
+        for (let j = i + 1; j < filterEntries.length && !hasSignificantVariation; j++) {
+          const [filter1, data1] = filterEntries[i];
+          const [filter2, data2] = filterEntries[j];
+          
+          // Calculate the absolute difference in percentages
+          const percentageDifference = Math.abs(data1.percentage - data2.percentage);
+          
+          // If the difference exceeds our threshold, mark as significant
+          if (percentageDifference > significanceThreshold) {
+            hasSignificantVariation = true;
+            console.log(`Significant variation found: Answer "${answer}" between "${filter1}" (${data1.percentage}%) and "${filter2}" (${data2.percentage}%)`);
+            break;
+          }
+        }
       }
     }
+  });
+
+  // Add insight based on our findings
+  if (!hasSignificantVariation) {
+    insights.push("There is no significant variation between groups (all variations are within 10 percentage points)");
   }
+};
+
+/**
+ * Generate insights for non-filtered data
+ * @param insightData The chart data to analyze
+ * @param insights Array to add insights to
+ */
+const generateNonFilteredInsights = (insightData: ChartDataPoint[], insights: string[]) => {
+    if (insightData.length === 0) return;
+    
+    const analysis = analyzeDataPoints(insightData);
+    if (!analysis) return;
+    
+    const { highestValue, secondHighestValue, leastCommonValue, valueDifference, rangeIsSmall } = analysis;
+    
+    // Add insight about most common response
+    insights.push(`The most common response is "${highestValue.name}" with ${highestValue.value} responses`);
+    
+    // Add insight about difference between highest and second highest if available
+    if (secondHighestValue) {
+      insights.push(`The difference between the most common response and the second most common response is ${valueDifference}`);
+    }
+    
+    // Add insight about least common response
+    insights.push(`The least common response is "${leastCommonValue.name}" with ${leastCommonValue.value} responses`);
+    
+    // Add insight if values are close
+    if (rangeIsSmall) {
+      insights.push("The results are very close in value");
+    }
+  };
+
+
+/**
+ * Find the most common, second most common, and least common data points
+ * @param dataPoints Array of chart data points to analyze
+ * @returns Object containing the analysis results
+ */
+const analyzeDataPoints = (dataPoints: ChartDataPoint[]) => {
+    if (!dataPoints || dataPoints.length === 0) {
+      return null;
+    }
   
-  return insights;
-}; 
+    // Sort data points by value in descending order
+    const sortedData = [...dataPoints].sort((a, b) => b.value - a.value);
+    
+    const highestValue = sortedData[0];
+    const secondHighestValue = sortedData.length > 1 ? sortedData[1] : null;
+    const leastCommonValue = sortedData[sortedData.length - 1];
+    
+    const valueDifference = secondHighestValue 
+      ? highestValue.value - secondHighestValue.value 
+      : 0;
+    
+    const rangeIsSmall = (highestValue.value - leastCommonValue.value) < 10;
+  
+    return {
+      highestValue,
+      secondHighestValue,
+      leastCommonValue,
+      valueDifference,
+      rangeIsSmall
+    };
+  };
