@@ -10,7 +10,8 @@ import {
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  Grid
 } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PATHS } from '@/routes/paths';
@@ -161,35 +162,48 @@ const OutputSurveyAnalysis: React.FC = () => {
                         {analysisQuestion.question.title}
                       </Typography>
                       
-                      {/* Display insights as bullet points */}
-                      {insights.length > 0 && (
-                        <Box sx={{ mb: 2, pl: 2 }}>
-                          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                            Insights:
-                          </Typography>
-                          <List dense disablePadding>
-                            {insights.map((insight, index) => (
-                              <ListItem key={index} sx={{ py: 0.5 }}>
-                                <ListItemText 
-                                  primary={
-                                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                      • {insight}
-                                    </Typography>
-                                  } 
-                                />
-                              </ListItem>
-                            ))}
-                          </List>
-                        </Box>
-                      )}
-                      
-                      <Box sx={{ height: 'auto', mt: 3, mb: 3 }}>
-                        <AnalysisChart
-                          chartTypeId={analysisQuestion.chart_type_id}
-                          data={getQuestionData(paginatedResponses, currentAnalysis, analysisQuestion.question_id)}
-                          sortByValue={analysisQuestion.sort_by_value}
-                        />
-                      </Box>
+                      <Grid container spacing={3}>
+                        {/* Left column - Graph */}
+                        <Grid item xs={12} md={7}>
+                          <Box sx={{ height: 'auto' }}>
+                            <AnalysisChart
+                              chartTypeId={analysisQuestion.chart_type_id}
+                              data={getQuestionData(paginatedResponses, currentAnalysis, analysisQuestion.question_id)}
+                              sortByValue={analysisQuestion.sort_by_value}
+                            />
+                          </Box>
+                        </Grid>
+                        
+                        {/* Right column - Insights */}
+                        <Grid item xs={12} md={5}>
+                          {insights.length > 0 ? (
+                            <Box sx={{ pt: '30px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+                              <Typography variant="h6" sx={{fontStyle: 'italic'}} color="text.secondary" gutterBottom>
+                                Insights:
+                              </Typography>
+                              <List dense disablePadding>
+                                {insights.map((insight, index) => (
+                                  <ListItem key={index} sx={{ py: 0.5 }}>
+                                    <ListItemText 
+                                      primary={
+                                        <Typography variant="body1" color="text.secondary" >
+                                          • {insight}
+                                        </Typography>
+                                      } 
+                                    />
+                                  </ListItem>
+                                ))}
+                              </List>
+                            </Box>
+                          ) : (
+                            <Box sx={{ height: '100%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', pt: 1 }}>
+                              <Typography variant="body2" color="text.secondary">
+                                No insights available for this question.
+                              </Typography>
+                            </Box>
+                          )}
+                        </Grid>
+                      </Grid>
                     </Box>
                   );
                 })}

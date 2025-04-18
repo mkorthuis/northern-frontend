@@ -42,7 +42,7 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
         <RechartsBarChart 
           data={sortedData} 
           layout="vertical"
-          margin={{ top: 20, right: 30, left: 150, bottom: 20 }}
+          margin={{ top: 20, right: 30, left: -50, bottom: 20 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis type="number" />
@@ -83,7 +83,7 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
       <RechartsBarChart 
         data={consolidatedData} 
         layout="vertical"
-        margin={{ top: 20, right: 30, left: 150, bottom: 20 }}
+        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
       >
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis type="number" />
