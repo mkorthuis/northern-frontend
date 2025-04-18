@@ -318,7 +318,6 @@ export const getInsights = (
     const insightData = insightDataGroup.allResponses.chartData[0].data;
     generateNonFilteredInsights(insightData, insights);
   }
-  
   return insights;
 }; 
 
@@ -340,7 +339,6 @@ const generateFilteredInsights = (
     
     // Prepare data for analysis
     const {answersByFilter, mostCommonByFilter, filterValues } = prepareFilterAnalysisData(insightData);
-    console.log(answersByFilter);
     
     // Add insights about most common responses across filters
     addCommonResponseInsights(mostCommonByFilter, filterValues, insights);
@@ -726,3 +724,79 @@ const analyzeDataPoints = (dataPoints: ChartDataPoint[]) => {
       rangeIsSmall
     };
   };
+
+/** 
+ * Groups analysis questions by their topics and sorts them by order_index within each group
+ * @param analysisQuestions Array of survey analysis questions to organize
+ * @returns Object containing grouped and sorted questions
+ */
+export interface TopicQuestionsGroup {
+  topicName: string;
+  questions: SurveyAnalysisQuestion[];
+}
+
+export const groupAndSortQuestionsByTopic = (
+  analysisQuestions: SurveyAnalysisQuestion[] | undefined
+): TopicQuestionsGroup[] => {
+  if (!analysisQuestions || analysisQuestions.length === 0) {
+    return [];
+  }
+
+  // Create a map to group questions by topic
+  const topicGroups = new Map<string, TopicQuestionsGroup>();
+  
+  // Special group for questions without topics
+  const noTopicGroup: TopicQuestionsGroup = {
+    topicName: 'Other Questions',
+    questions: []
+  };
+
+  // Process each question
+  analysisQuestions.forEach(question => {
+    if (!question.topics || question.topics.length === 0) {
+      // Add to the "no topic" group
+      noTopicGroup.questions.push(question);
+    } else {
+      // Add to each of its topic groups
+      question.topics.forEach(topic => {
+        if (!topic.id) return;
+        
+        const topicId = topic.id;
+        if (!topicGroups.has(topicId)) {
+          topicGroups.set(topicId, {
+            topicName: topic.name,
+            questions: []
+          });
+        }
+        
+        topicGroups.get(topicId)?.questions.push(question);
+      });
+    }
+  });
+
+  // Sort questions within each group by order_index
+  const sortQuestionsByOrderIndex = (questions: SurveyAnalysisQuestion[]): SurveyAnalysisQuestion[] => {
+    return [...questions].sort((a, b) => {
+      const orderA = a.question?.order_index ?? 0;
+      const orderB = b.question?.order_index ?? 0;
+      return orderA - orderB;
+    });
+  };
+
+  // Apply sorting to each group
+  noTopicGroup.questions = sortQuestionsByOrderIndex(noTopicGroup.questions);
+  for (const group of topicGroups.values()) {
+    group.questions = sortQuestionsByOrderIndex(group.questions);
+  }
+
+  // Convert map to array and sort groups alphabetically by topic name
+  const result: TopicQuestionsGroup[] = Array.from(topicGroups.values())
+    .sort((a, b) => a.topicName.localeCompare(b.topicName));
+  
+  // Add the "no topic" group at the end if it has any questions
+  if (noTopicGroup.questions.length > 0) {
+    result.push(noTopicGroup);
+  }
+
+  return result;
+};

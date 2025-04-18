@@ -33,8 +33,12 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
   if (data.length === 1) {
     const sortedData = getSortedData(data[0].data, sortByValue);
     
+    // Calculate dynamic height based on number of items
+    // Minimum height of 350px, and each item adds 40px
+    const dynamicHeight = Math.max(height, Math.min(1000, 120 + sortedData.length * 40));
+    
     return (
-      <ResponsiveContainer width="100%" height={height}>
+      <ResponsiveContainer width="100%" height={dynamicHeight}>
         <RechartsBarChart 
           data={sortedData} 
           layout="vertical"
@@ -67,8 +71,12 @@ const HorizontalBarChart: React.FC<BaseChartProps> = ({ data, sortByValue, heigh
   // Handle multiple data series
   const consolidatedData = getConsolidatedData(data, sortByValue);
   
+  // Calculate dynamic height based on number of categories
+  // Minimum height of 350px, and each category adds 40px
+  const dynamicHeight = Math.max(height, Math.min(1000, 120 + consolidatedData.length * 40));
+  
   return (
-    <ResponsiveContainer width="100%" height={height}>
+    <ResponsiveContainer width="100%" height={dynamicHeight}>
       <RechartsBarChart 
         data={consolidatedData} 
         layout="vertical"
