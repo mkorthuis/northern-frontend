@@ -89,8 +89,13 @@ const OutputSurveyAnalysis: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Container maxWidth="lg">
-        <Paper elevation={3} sx={{ p: 4, my: 4 }}>
+      <Container maxWidth="lg" sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: 'calc(100vh)' // Adjust as needed based on your layout
+      }}>
+        <Paper elevation={3} sx={{ p: 4, my: 4, width: '100%' }}>
           <Typography variant="h4" component="h1" gutterBottom>
             Survey Analysis Output
           </Typography>

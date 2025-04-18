@@ -233,6 +233,10 @@ export const surveyApi = {
     getSurveyResponses: (surveyId: string, completedOnly = false, forceRefresh = false) => 
         fetchData(buildSurveyUrl(`${surveyId}/responses`, { completed_only: completedOnly }), forceRefresh),
     
+    // Delete all responses for a specific survey
+    deleteAllSurveyResponses: (surveyId: string) => 
+        axiosInstance.delete(buildSurveyUrl(`${surveyId}/responses`)),
+    
     // Get paginated responses for a specific survey with filtering options
     getSurveyResponsesPaginated: (
         surveyId: string, 

@@ -300,27 +300,10 @@ export const deleteSurveyResponse = createAsyncThunk(
 
 export const deleteAllSurveyResponses = createAsyncThunk(
   'survey/deleteAllSurveyResponses',
-  async (surveyId: string, { rejectWithValue, dispatch, getState }) => {
+  async (surveyId: string, { rejectWithValue }) => {
     try {
-      // First get all responses for this survey
-      const responses = await surveyApi.getSurveyResponses(surveyId, false, true);
-      
-      // Track successfully deleted responses
-      let successCount = 0;
-      
-      // Delete each response
-      for (const response of responses) {
-        if (response.id) {
-          try {
-            await surveyApi.deleteSurveyResponse(response.id);
-            successCount++;
-          } catch (error) {
-            console.error(`Failed to delete response ${response.id}:`, error);
-          }
-        }
-      }
-      
-      return { surveyId, totalDeleted: successCount };
+      const response = await surveyApi.deleteAllSurveyResponses(surveyId);
+      return { surveyId, deletedCount: response.data };
     } catch (error) {
       return rejectWithValue(handleApiError(error, 'Failed to delete all survey responses'));
     }

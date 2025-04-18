@@ -10,12 +10,14 @@ import {
   Alert,
   LinearProgress,
   CircularProgress,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
-import { CloudUpload, CheckCircle } from '@mui/icons-material';
+import { CloudUpload, CheckCircle, DeleteForever } from '@mui/icons-material';
 import Papa from 'papaparse';
 import { surveyApi } from '@/services/api/endpoints/surveys';
 import { useSelector, useDispatch } from 'react-redux';
-import { selectCurrentSurvey, fetchSurveyById } from '@/store/slices/surveySlice';
+import { selectCurrentSurvey, fetchSurveyById, deleteAllSurveyResponses } from '@/store/slices/surveySlice';
 import { AppDispatch } from '@/store/store';
 
 interface SurveyResponseUploadDialogProps {
@@ -60,6 +62,8 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
   const [questionIdMapping, setQuestionIdMapping] = useState<QuestionIdMapping>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadResults, setUploadResults] = useState<UploadResults | null>(null);
+  const [deleteExistingResponses, setDeleteExistingResponses] = useState(false);
+  const [isDeletingResponses, setIsDeletingResponses] = useState(false);
 
   useEffect(() => {
     // Fetch survey data when dialog opens
@@ -138,12 +142,26 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
     resetState();
 
     try {
+      // If user opted to delete existing responses, do that first
+      if (deleteExistingResponses) {
+        setIsDeletingResponses(true);
+        setUploadProgress(2);
+        try {
+          const result = await dispatch(deleteAllSurveyResponses(surveyId)).unwrap();
+          console.log(`Deleted ${result.deletedCount} existing responses`);
+        } catch (error) {
+          console.error('Failed to delete existing responses:', error);
+          setUploadError('Failed to delete existing responses. Proceeding with upload.');
+        }
+        setIsDeletingResponses(false);
+      }
+
       const totalBatches = Math.ceil(parsedData.length / BATCH_SIZE);
       let processedCount = 0;
       let successCount = 0;
       let failedCount = 0;
 
-      setUploadProgress(5);
+      setUploadProgress(deleteExistingResponses ? 10 : 5);
 
       for (let i = 0; i < totalBatches; i++) {
         const start = i * BATCH_SIZE;
@@ -160,7 +178,7 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
                 .filter(([externalId]) => validExternalIds.has(externalId))
                 .map(([externalId, value]) => ({
                   question_id: questionIdMapping[externalId],
-                  value: value,
+                  value: value.includes(';') ? value.split(';')[0].trim() : value,
                   selected_options: null,
                   file_path: null,
                   answered_at: new Date().toISOString()
@@ -173,7 +191,8 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
           failedCount += (batchData.length - batchSuccess);
           processedCount += batchData.length;
 
-          const progress = Math.floor(((i + 1) / totalBatches) * 95) + 5;
+          const progressStart = deleteExistingResponses ? 10 : 5;
+          const progress = Math.floor(((i + 1) / totalBatches) * (95 - progressStart)) + progressStart;
           setUploadProgress(progress);
           setUploadStats({
             total: parsedData.length,
@@ -208,6 +227,7 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
       setUploadError(`Failed to upload data: ${(error as Error).message}`);
     } finally {
       setIsUploading(false);
+      setIsDeletingResponses(false);
     }
   };
 
@@ -279,6 +299,34 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
               {file ? `${(file.size / 1024).toFixed(2)} KB` : 'CSV format only (.csv)'}
             </Typography>
           </Box>
+          
+          {file && !isUploading && !uploadSuccess && (
+            <Box sx={{ mt: 2, mb: 3 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={deleteExistingResponses}
+                    onChange={(e) => setDeleteExistingResponses(e.target.checked)}
+                    color="primary"
+                    disabled={isUploading}
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <DeleteForever color="error" sx={{ mr: 1 }} />
+                    <Typography>
+                      Delete all existing responses before upload
+                    </Typography>
+                  </Box>
+                }
+              />
+              {deleteExistingResponses && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  Warning: This will permanently delete all existing survey responses. This action cannot be undone.
+                </Alert>
+              )}
+            </Box>
+          )}
 
           {uploadError && (
             <Alert severity="error" sx={{ mb: 3 }}>
@@ -289,16 +337,27 @@ const SurveyResponseUploadDialog: React.FC<SurveyResponseUploadDialogProps> = ({
           {isUploading && (
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" sx={{ mr: 2 }}>
-                  Uploading responses: {uploadStats.processed} of {uploadStats.total}
-                </Typography>
-                <Typography variant="body2" color="success.main" sx={{ mr: 1 }}>
-                  Success: {uploadStats.success}
-                </Typography>
-                {uploadStats.failed > 0 && (
-                  <Typography variant="body2" color="error">
-                    Failed: {uploadStats.failed}
+                {isDeletingResponses ? (
+                  <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                    <CircularProgress size={16} sx={{ mr: 1 }} />
+                    Deleting existing responses...
                   </Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ mr: 2 }}>
+                    Uploading responses: {uploadStats.processed} of {uploadStats.total}
+                  </Typography>
+                )}
+                {!isDeletingResponses && (
+                  <>
+                    <Typography variant="body2" color="success.main" sx={{ mr: 1 }}>
+                      Success: {uploadStats.success}
+                    </Typography>
+                    {uploadStats.failed > 0 && (
+                      <Typography variant="body2" color="error">
+                        Failed: {uploadStats.failed}
+                      </Typography>
+                    )}
+                  </>
                 )}
               </Box>
               <LinearProgress 
