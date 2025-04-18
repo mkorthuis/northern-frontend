@@ -20,7 +20,7 @@ const BarChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
   // If there's no data or no data series, show empty message
   if (!data || data.length === 0 || !data[0].data || data[0].data.length === 0) {
     return (
-      <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <Box sx={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="textSecondary">
           No data available for this question
         </Typography>
@@ -67,7 +67,7 @@ const BarChart: React.FC<BaseChartProps> = ({ data, sortByValue, height = 350 })
         />
         <YAxis />
         <Tooltip />
-        <Legend />
+        <Legend layout="horizontal" verticalAlign="top" align="center" height={56} />
         {data.map((series, index) => (
           <Bar 
             key={series.name}

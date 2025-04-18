@@ -156,7 +156,7 @@ const OutputSurveyAnalysis: React.FC = () => {
                   const insights = getInsights(analysisQuestion, paginatedResponses, currentAnalysis);
                   
                   return (
-                    <Box key={analysisQuestion.id} sx={{ mb: 4 }}>
+                    <Box key={analysisQuestion.id} sx={{ mb: 6 }}>
                       <Typography variant="h6" gutterBottom>
                         {analysisQuestion.question.title}
                       </Typography>
@@ -183,11 +183,13 @@ const OutputSurveyAnalysis: React.FC = () => {
                         </Box>
                       )}
                       
-                      <AnalysisChart
-                        chartTypeId={analysisQuestion.chart_type_id}
-                        data={getQuestionData(paginatedResponses, currentAnalysis, analysisQuestion.question_id)}
-                        sortByValue={analysisQuestion.sort_by_value}
-                      />
+                      <Box sx={{ height: 'auto', mt: 3, mb: 3 }}>
+                        <AnalysisChart
+                          chartTypeId={analysisQuestion.chart_type_id}
+                          data={getQuestionData(paginatedResponses, currentAnalysis, analysisQuestion.question_id)}
+                          sortByValue={analysisQuestion.sort_by_value}
+                        />
+                      </Box>
                     </Box>
                   );
                 })}

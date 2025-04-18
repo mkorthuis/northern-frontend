@@ -318,6 +318,7 @@ export const getInsights = (
     const insightData = insightDataGroup.allResponses.chartData[0].data;
     generateNonFilteredInsights(insightData, insights);
   }
+  console.log(analysisQuestion);
   return insights;
 }; 
 

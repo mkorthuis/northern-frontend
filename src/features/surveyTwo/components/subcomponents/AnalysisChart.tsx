@@ -29,13 +29,13 @@ const AnalysisChart: React.FC<AnalysisChartProps> = ({ chartTypeId, data, sortBy
   // Select the appropriate chart based on chart type ID
   switch (chartTypeId) {
     case ChartTypeId.BarChart:
-      return <BarChart data={data} sortByValue={sortByValue} />;
+      return <BarChart data={data} sortByValue={sortByValue} height={450} />;
     
     case ChartTypeId.PieChart:
       return <PieChart data={data} sortByValue={sortByValue} />;
     
     case ChartTypeId.HorizontalBarChart:
-      return <HorizontalBarChart data={data} sortByValue={sortByValue} />;
+      return <HorizontalBarChart data={data} sortByValue={sortByValue} height={450} />;
     
     default:
       return (
