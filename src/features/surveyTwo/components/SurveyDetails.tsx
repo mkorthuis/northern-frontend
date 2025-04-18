@@ -256,7 +256,7 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({
               No analyses have been created for this survey yet.
             </Typography>
           ) : (
-            <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0e0', borderRadius: 1 }}>
+            <List sx={{ bgcolor: 'background.paper', border: '1px solid #e0e0e0', borderRadius: 1, m:0,p:0 }}>
               {analyses.map((analysis) => (
                 <Box
                   key={analysis.id}
@@ -289,19 +289,7 @@ const SurveyDetails: React.FC<SurveyDetailsProps> = ({
                         </Box>
                       }
                     />
-                    <Tooltip title="View Analysis">
-                      <IconButton
-                        edge="end"
-                        aria-label="view"
-                        sx={{ position: 'absolute', right: 8 }}
-                        onClick={(e) => {
-                          e.stopPropagation(); // Prevent double navigation
-                          handleViewAnalysis(analysis.id);
-                        }}
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                    </Tooltip>
+                    
                   </ListItem>
                 </Box>
               ))}

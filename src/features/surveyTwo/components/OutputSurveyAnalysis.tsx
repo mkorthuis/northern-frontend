@@ -128,7 +128,6 @@ const OutputSurveyAnalysis: React.FC = () => {
 
   return (
     <Container maxWidth="lg">
-      <Paper elevation={3} sx={{ p: 4, my: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4" component="h1">
             {currentAnalysis.title} - Output
@@ -200,7 +199,6 @@ const OutputSurveyAnalysis: React.FC = () => {
             ))
           )}
         </Box>
-      </Paper>
     </Container>
   );
 };
